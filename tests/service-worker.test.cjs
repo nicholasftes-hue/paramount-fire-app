@@ -13,7 +13,7 @@ function worker() {
   };
   const context=vm.createContext({URL,console,
     self:{registration:{scope:'https://example.test/app/'},location:{origin:'https://example.test'},addEventListener:(n,f)=>events[n]=f,skipWaiting:()=>skipped++,clients:{claim:()=>claimed++}},
-    caches:{open:async()=>cache,keys:async()=>['other-app-cache','paramount-shell-academy-v1','paramount-demo-v1','paramount-shell-academy-v3'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['other-app-cache','paramount-shell-academy-v1','paramount-demo-v1','paramount-shell-academy-v4'],delete:async key=>deleted.push(key)},
     fetch:(...args)=>network(...args)
   });
   vm.runInContext(fs.readFileSync('service-worker.js','utf8'),context);
@@ -28,7 +28,7 @@ function worker() {
 
 test('offline installation includes every shell asset and both PWA icons',async()=>{
   const w=worker();await w.lifecycle('install');
-  for(const path of ['index.html','index-3.html','academy.js','academy.css','app-updates.js','manifest.webmanifest','icon-192.png','icon-512.png']) {
+  for(const path of ['index.html','index-3.html','academy.js','academy.css','app-updates.js','manifest.webmanifest','icon-192.png','icon-512.png','academy-test.html']) {
     assert(w.stored.has('https://example.test/app/'+path));assert(fs.existsSync(path));
   }
   assert.equal(w.skipped,0);w.message('ignored');assert.equal(w.skipped,0);

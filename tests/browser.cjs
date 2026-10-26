@@ -20,12 +20,12 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
   res.setHeader('Cache-Control','no-store');
   let body=fs.readFileSync(file);
-  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-academy-v3','paramount-shell-academy-test-old'));
+  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-academy-v4','paramount-shell-academy-test-old'));
   res.end(body);
 });
 
 async function check(name,fn){await fn();results.push({name,status:'passed'});console.log('PASS:',name)}
-async function ready(page,url){await page.goto(url);await page.locator('[data-academy-subject="fire"]').waitFor();await page.waitForFunction(()=>document.querySelector('#view')?.children.length>0)}
+async function ready(page,url){await page.goto(url);await page.locator('#academy[data-academy-ready="true"]').waitFor();await page.waitForFunction(()=>document.querySelector('#view')?.children.length>0)}
 async function allSubjects(page){
   if(await page.locator('[data-academy-back]').first().isVisible())await page.locator('[data-academy-back]').first().click();
   if(await page.locator('[data-academy-home]').isVisible())await page.locator('[data-academy-home]').click();
@@ -143,6 +143,10 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
       await page.locator('[data-academy-subject="fire"]').waitFor();await lesson(page,'fire-basics');
       assert.match(await page.locator('#academy-quiz').innerText(),/Knowledge check/);
       assert.equal(await page.evaluate(async()=>{const r=await fetch('./icon-192.png');return r.ok&&(await r.blob()).size>0}),true);
+      await page.goto(base+'academy-test.html');
+      await page.locator('#academy[data-academy-ready="true"]').waitFor();
+      await lesson(page,'cctv-basics');assert(await page.locator('#academy-quiz').isVisible());
+      await page.goto(base);await page.locator('#academy[data-academy-ready="true"]').waitFor();
       await context.setOffline(false);
     });
     await check('HTTP 503 falls back to the cached white dashboard',async()=>{
@@ -151,6 +155,35 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     });
     await check('new browser session has no completed Academy knowledge checks',async()=>{
       const clean=await fresh();try{const p=await clean.newPage();await ready(p,base+'index-3.html');await p.locator('[data-academy-subject="fire"]').click();assert.doesNotMatch(await p.locator('#academy-content').innerText(),/Knowledge check passed/)}finally{await clean.close()}
+    });
+    await check('standalone Academy opens six subjects and four working quizzes without registering a worker',async()=>{
+      const ctx=await fresh();
+      try{
+        const p=await ctx.newPage();await p.goto(base+'academy-test.html');await p.locator('#academy[data-academy-ready="true"]').waitFor();
+        assert.match(await p.locator('#academy-status').innerText(),/Academy ready/);
+        assert.equal(await p.evaluate(async()=>!!(await navigator.serviceWorker.getRegistration())),false);
+        for(const id of ['fire','cctv','electrical','intruder','lighting','skills']){
+          await p.locator(`[data-academy-subject="${id}"]`).click();assert(await p.locator('#academy-content h3').isVisible());await allSubjects(p);
+        }
+        for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0]})){
+          await lesson(p,id);await quiz(p,answers);assert.match(await p.locator('#academy-result').innerText(),/Knowledge check passed/);
+        }
+      }finally{await ctx.close()}
+    });
+    await check('script-load failures show a recoverable message without replacing the main app',async()=>{
+      for(const entry of ['index.html','index-3.html','academy-test.html']){
+        const ctx=await fresh({serviceWorkers:'block'});
+        try{
+          await ctx.route('**/academy.js?*',route=>route.abort());
+          const p=await ctx.newPage();await p.goto(base+entry);
+          await p.waitForFunction(()=>/could not load|failed to load/i.test(document.getElementById('academy-status')?.textContent||''));
+          if(entry!=='academy-test.html'){
+            assert(await p.locator('.home-hero').isVisible());await p.locator('.home-management [data-tab="Properties"]').click();assert(await p.locator('form[data-type="properties"]').isVisible());
+          }
+          await ctx.unroute('**/academy.js?*');await p.reload();await p.locator('#academy[data-academy-ready="true"]').waitFor();
+          await p.locator('[data-academy-subject="fire"]').click();assert(await p.locator('#academy-content h3').isVisible());
+        }finally{await ctx.close()}
+      }
     });
     await context.close();context=null;
     await check('service-worker update waits for approval and cancelled update preserves a draft',async()=>{
@@ -163,7 +196,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         p.once('dialog',dialog=>dialog.dismiss());await p.locator('#app-update button').click();
         assert.equal(await p.locator('input[name="name"]').inputValue(),'Keep this draft');
         p.once('dialog',dialog=>dialog.accept());await p.locator('#app-update button').click();
-        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-academy-v3')&&!keys.includes('paramount-shell-academy-test-old')});
+        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-academy-v4')&&!keys.includes('paramount-shell-academy-test-old')});
         await p.locator('[data-academy-subject="fire"]').waitFor();
       }finally{oldWorker=false;await ctx.close()}
     });

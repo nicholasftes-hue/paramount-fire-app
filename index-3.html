@@ -85,13 +85,14 @@ document.addEventListener('click',async e=>{
 });
 
 render();</script>
-<script src="./app-updates.js?v=academy-1"></script>
+<script src="./app-updates.js?v=academy-2"></script>
 
-<link rel="stylesheet" href="./academy.css?v=academy-1">
+<link rel="stylesheet" href="./academy.css?v=academy-2">
 
 <section id="academy">
 <h2>🎓 Paramount Staff Learning Academy</h2>
 <p>Training for engineers, office staff and new starters.</p>
+<p id="academy-status" role="status">Loading Academy… If the cards remain inactive, reload or open <a href="./academy-test.html">the Academy test page</a>.</p>
 <p><button type="button" data-academy-return>↑ Return to main app</button></p>
 <div class="academy-grid">
 <button type="button" class="academy-card" data-academy-subject="fire" aria-controls="academy-content">
@@ -123,7 +124,7 @@ render();</script>
 <div id="academy-content" hidden></div>
 <noscript><p>Enable JavaScript to open Academy lessons and quizzes.</p></noscript>
 </section>
-<script src="./academy.js?v=academy-1"></script>
+<script id="academy-script" src="./academy.js?v=academy-2" defer onerror="document.getElementById('academy-status').textContent='Academy could not load. Check your connection and reload.'"></script>
 
 </body></html>
 

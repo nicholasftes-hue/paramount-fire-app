@@ -9,6 +9,7 @@ function academy({stored = new Map(), blocked = false} = {}) {
   const workspace = {setAttribute(){}, focus:()=>focus.push('workspace'), scrollIntoView(){}};
   let returnHandler;
   const root = {
+    dataset:{},
     querySelector(selector) {
       if (selector === '.academy-grid') return grid;
       if (selector === '[data-academy-return]') return {addEventListener:(_,f)=>returnHandler=f};
@@ -28,7 +29,7 @@ function academy({stored = new Map(), blocked = false} = {}) {
   return {
     stored, content, grid, focus, feedback, result, context,
     click(attr,value){handlers.click({target:{closest:()=>({dataset:{academySubject:value,academyLesson:value},hasAttribute:name=>name===attr})}})},
-    submit(answers){handlers.submit({target:{id:'academy-quiz',answers:Object.fromEntries(answers.map((v,i)=>['q'+i,String(v)]))},preventDefault(){}})},
+    submit(answers){handlers.submit({target:{id:'academy-quiz',answers:Object.fromEntries(answers.map((v,i)=>['q'+i,String(v)])),reportValidity:()=>true},preventDefault(){}})},
     returnToApp(){returnHandler()}
   };
 }

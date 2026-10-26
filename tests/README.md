@@ -21,6 +21,12 @@ reopening, transient server errors, a fresh browser session and consent before
 service-worker updates. Unexpected external requests or JavaScript errors fail
 the check. Screenshots and results are saved in `test-results/`.
 
+The supplied repair's 70 adapter checks are retained in
+`academy-loading.test.cjs` alongside the regression tests. Its Python browser
+runner is in `academy-browser.py`; GitHub runs this against Chrome as well.
+The browser checks include the standalone Academy page, its offline cache,
+readiness feedback and recovery after an Academy script-load failure.
+
 GitHub Actions runs the same checks for PRs to `main` on Ubuntu 24.04, with read
 access only. The workflow has no deployment steps or application secrets.
 

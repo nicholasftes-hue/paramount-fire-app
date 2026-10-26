@@ -1,6 +1,6 @@
 // Bump this version with every app-shell release. Never cache cloud/auth requests.
-const CACHE = 'paramount-shell-academy-v3';
-const ASSETS = ['./index.html', './index-3.html', './academy.js', './academy.css', './app-updates.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'paramount-shell-academy-v4';
+const ASSETS = ['./index.html', './index-3.html', './academy.js', './academy.css', './app-updates.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './academy-test.html'];
 const shell = new Map(ASSETS.map(path => [new URL(path, self.registration.scope).pathname, new URL(path, self.registration.scope).href]));
 shell.set(new URL('./', self.registration.scope).pathname, new URL('./index.html', self.registration.scope).href);
 self.addEventListener('install', event => {

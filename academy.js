@@ -1,10 +1,12 @@
 /* Additive Academy module: never writes to the existing service database. */
 (() => {
   'use strict';
+  function initialiseAcademy() {
   const root = document.getElementById('academy');
-  if (!root) return;
+  if (!root || root.dataset.academyReady === 'true') return;
   const content = document.getElementById('academy-content');
   const grid = root.querySelector('.academy-grid');
+  if (!content || !grid) return;
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const subjects = {
     fire: {name:'Fire Alarm Systems', lessons:['fire-basics','fire-ctec'], next:'Servicing records and supervised fault diagnosis'},
@@ -67,7 +69,8 @@
     workspace.scrollIntoView({block:'start'});
   });
   function progressKey() {
-    const user = typeof cloudSession !== 'undefined' && cloudSession?.user?.id;
+    let user;
+    try { user = typeof cloudSession !== 'undefined' && cloudSession?.user?.id; } catch { /* Host app may still be initialising. */ }
     return 'paramount-academy-session-v1:' + (user || 'guest');
   }
   function progress() {
@@ -109,6 +112,7 @@
   root.addEventListener('submit',event=>{
     if(event.target.id!=='academy-quiz') return;
     event.preventDefault();
+    if (!event.target.reportValidity()) return;
     const item=lessons[currentLesson]; if(!item) return;
     const answers=new FormData(event.target);
     let score=0;
@@ -124,5 +128,17 @@
     } else message+='Review the explanations and try again. No new completion was recorded.';
     root.querySelector('#academy-result').textContent=message;
   });
+  root.dataset.academyReady = 'true';
+  const status = document.getElementById('academy-status');
+  if (status) status.textContent = 'Academy ready — choose a subject.';
+  }
+  // Works for direct navigation, deferred scripts and the document.write app loader.
+  if (document.getElementById('academy')) {
+    initialiseAcademy();
+  } else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialiseAcademy, {once:true});
+  } else {
+    initialiseAcademy();
+  }
 })();
 
