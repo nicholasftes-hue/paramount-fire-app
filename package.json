@@ -1,0 +1,11 @@
+{
+  "name": "paramount-fire-app-checks",
+  "private": true,
+  "scripts": {
+    "test": "node --test --test-isolation=none tests/*.test.cjs",
+    "test:browser": "node tests/browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}
