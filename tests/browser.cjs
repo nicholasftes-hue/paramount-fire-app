@@ -20,7 +20,7 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
   res.setHeader('Cache-Control','no-store');
   let body=fs.readFileSync(file);
-  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-academy-v4','paramount-shell-academy-test-old'));
+  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-academy-v5','paramount-shell-academy-test-old'));
   res.end(body);
 });
 
@@ -79,8 +79,8 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         assert.equal(await page.locator(`[data-academy-subject="${id}"]`).evaluate(el=>el===document.activeElement),true);
       }
     });
-    await check('all four quizzes validate missing answers, explain failures, retry and save tab progress',async()=>{
-      for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0]})){
+    await check('all six quizzes validate missing answers, explain failures, retry and save tab progress',async()=>{
+      for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]})){
         await lesson(page,id);
         await page.locator('#academy-quiz button[type="submit"]').click();
         assert.equal(await page.locator('#academy-result').innerText(),'');
@@ -92,11 +92,15 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         await page.locator('[data-academy-back]').first().click();
         assert.match(await page.locator(`[data-academy-lesson="${id}"]`).innerText(),/Knowledge check passed/);
       }
-      assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(sessionStorage.getItem('paramount-academy-session-v1:guest'))).length),4);
+      assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(sessionStorage.getItem('paramount-academy-session-v1:guest'))).length),6);
     });
     await check('previous and next lesson buttons and keyboard activation',async()=>{
       await lesson(page,'fire-basics');await page.getByRole('button',{name:'Next lesson →',exact:true}).click();
       assert.match(await page.locator('#academy-content h3').innerText(),/C-TEC/);
+      await page.getByRole('button',{name:'Next lesson →',exact:true}).click();
+      assert.match(await page.locator('#academy-content h3').innerText(),/Fire alarm servicing/);
+      await page.getByRole('button',{name:'Back to learning path',exact:true}).click();
+      await lesson(page,'fire-ctec');
       await page.getByRole('button',{name:'← Previous lesson',exact:true}).click();
       assert.match(await page.locator('#academy-content h3').innerText(),/Fire alarms:/);
       await allSubjects(page);
@@ -129,9 +133,26 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         assert.match(await popup.locator('body').innerText(),/DRAFT|draft/);await popup.close();
       }
     });
+    await check('all four existing Documents links download the exact new templates',async()=>{
+      await page.locator('[data-tab="Documents"]').click();
+      for(const kind of ['Quotation','Invoice'])for(const ext of ['Editable.docx','Fillable.pdf']){
+        const file=`Paramount_${kind}_${ext}`;
+        const downloadPromise=page.waitForEvent('download');
+        await page.locator(`a[download][href="./templates/${file}"]`).click();
+        const download=await downloadPromise;
+        assert.equal(download.suggestedFilename(),file);
+        assert.equal(await download.failure(),null);
+        assert.deepEqual(fs.readFileSync(await download.path()),fs.readFileSync(path.join(root,'templates',file)));
+      }
+    });
     await check('mobile widths, landscape and keyboard focus fit without horizontal overflow',async()=>{
       for(const viewport of [{width:320,height:568},{width:360,height:800},{width:412,height:915},{width:800,height:360}]){
-        await page.setViewportSize(viewport);await lesson(page,'cctv-basics');
+        await page.setViewportSize(viewport);
+        for(const id of ['fire-servicing','cctv-diagnosis']) {
+          await lesson(page,id);
+          assert.equal(await page.locator('#academy-quiz fieldset').count(),6);
+          assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,JSON.stringify(viewport)+id);
+        }
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,JSON.stringify(viewport));
         const first=page.locator('#academy-quiz input').first();await first.focus();await page.keyboard.press('ArrowDown');
         assert.equal(await page.locator('#academy-quiz input[name="q0"]:checked').count(),1);
@@ -145,7 +166,13 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
       assert.equal(await page.evaluate(async()=>{const r=await fetch('./icon-192.png');return r.ok&&(await r.blob()).size>0}),true);
       await page.goto(base+'academy-test.html');
       await page.locator('#academy[data-academy-ready="true"]').waitFor();
-      await lesson(page,'cctv-basics');assert(await page.locator('#academy-quiz').isVisible());
+      await lesson(page,'cctv-diagnosis');await quiz(page,[1,0,2,1,0,2]);assert.match(await page.locator('#academy-result').innerText(),/Knowledge check passed/);
+      await lesson(page,'fire-servicing');await quiz(page,[0,1,2,0,1,2]);assert.match(await page.locator('#academy-result').innerText(),/Knowledge check passed/);
+      for(const kind of ['Quotation','Invoice'])for(const ext of ['Editable.docx','Fillable.pdf']){
+        const file=`templates/Paramount_${kind}_${ext}`;
+        const downloaded=await page.evaluate(async file=>{const r=await fetch('./'+file);return {ok:r.ok,bytes:Array.from(new Uint8Array(await r.arrayBuffer()))}},file);
+        assert(downloaded.ok);assert.deepEqual(Buffer.from(downloaded.bytes),fs.readFileSync(path.join(root,file)));
+      }
       await page.goto(base);await page.locator('#academy[data-academy-ready="true"]').waitFor();
       await context.setOffline(false);
     });
@@ -156,7 +183,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     await check('new browser session has no completed Academy knowledge checks',async()=>{
       const clean=await fresh();try{const p=await clean.newPage();await ready(p,base+'index-3.html');await p.locator('[data-academy-subject="fire"]').click();assert.doesNotMatch(await p.locator('#academy-content').innerText(),/Knowledge check passed/)}finally{await clean.close()}
     });
-    await check('standalone Academy opens six subjects and four working quizzes without registering a worker',async()=>{
+    await check('standalone Academy opens six subjects and six working quizzes without registering a worker',async()=>{
       const ctx=await fresh();
       try{
         const p=await ctx.newPage();await p.goto(base+'academy-test.html');await p.locator('#academy[data-academy-ready="true"]').waitFor();
@@ -165,7 +192,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         for(const id of ['fire','cctv','electrical','intruder','lighting','skills']){
           await p.locator(`[data-academy-subject="${id}"]`).click();assert(await p.locator('#academy-content h3').isVisible());await allSubjects(p);
         }
-        for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0]})){
+        for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]})){
           await lesson(p,id);await quiz(p,answers);assert.match(await p.locator('#academy-result').innerText(),/Knowledge check passed/);
         }
       }finally{await ctx.close()}
@@ -196,7 +223,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         p.once('dialog',dialog=>dialog.dismiss());await p.locator('#app-update button').click();
         assert.equal(await p.locator('input[name="name"]').inputValue(),'Keep this draft');
         p.once('dialog',dialog=>dialog.accept());await p.locator('#app-update button').click();
-        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-academy-v4')&&!keys.includes('paramount-shell-academy-test-old')});
+        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-academy-v5')&&!keys.includes('paramount-shell-academy-test-old')});
         await p.locator('[data-academy-subject="fire"]').waitFor();
       }finally{oldWorker=false;await ctx.close()}
     });

@@ -26,7 +26,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install --disable-pip-version-check playwright==1.56.0
+      - run: python -m pip install --disable-pip-version-check playwright==1.56.0 python-docx==1.2.0 pypdf==6.1.1
+      - run: python tests/templates.py
       - run: python tests/academy-browser.py --browser chromium
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome

@@ -58,7 +58,7 @@ for (const key of ['fire','cctv','electrical','intruder','lighting','skills']) {
   f.click('academy-home');
   check(!f.grid.hidden && f.content.hidden,'Returns to cards: '+key);
 }
-for (const [key,answers] of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0]})) {
+for (const [key,answers] of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]})) {
   f.click('academy-lesson',key);
   check(f.content.innerHTML.includes('academy-quiz'),'Lesson and quiz open: '+key);
   const pass=Object.fromEntries(answers.map((value,i)=>['q'+i,String(value)]));
@@ -91,7 +91,7 @@ for (const file of ['index.html','index-3.html','academy-test.html']) {
 for (const file of ['index-3.html','academy-test.html']) {
   const html=fs.readFileSync(path.join(base,file),'utf8');
   check((html.match(/data-academy-subject=/g)||[]).length===6,'Six native cards: '+file);
-  check(html.includes('academy.js?v=academy-2'),'Current script version: '+file);
+  check(html.includes('academy.js?v=academy-3'),'Current script version: '+file);
 }
 const standalone=fs.readFileSync(path.join(base,'academy-test.html'),'utf8');
 check(!standalone.includes('app-updates.js')&&!standalone.includes('supabase.co'),'Standalone has no cloud or worker setup');
@@ -114,7 +114,7 @@ console.log(`PASS: ${checks} Academy logic, loading, quiz, storage, markup and s
       }}
     };
     await vm.runInNewContext(loader,{document,console,fetch:async()=>({ok:true,text:async()=>appHtml})});
-    check(appended.join(',')==='./app-updates.js?v=academy-2,./academy.js?v=academy-2','Loader explicitly loads modules in order');
+    check(appended.join(',')==='./app-updates.js?v=academy-3,./academy.js?v=academy-3','Loader explicitly loads modules in order');
     check(!/<script\b[^>]*\bsrc=/.test(written),'Replacement markup contains no racing external script tags');
     check(written.includes('paramount-white-theme'),'White theme injection retained');
     if (failAcademy) check(status.textContent.includes('could not load'),'Module failure displays recoverable status');

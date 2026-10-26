@@ -14,14 +14,14 @@ npm run test:browser
 
 The browser check starts a temporary loopback HTTP server with the same
 `/paramount-fire-app/` path as GitHub Pages. It tests the loader and direct app
-entry, six subjects, all four quizzes, retries and feedback, planned paths,
+entry, six subjects, all six quizzes, retries and feedback, planned paths,
 previous/next/back buttons, keyboard controls, preservation of an unsaved property
 draft, existing app views, draft reports/invoices, narrow screens, offline
 reopening, transient server errors, a fresh browser session and consent before
 service-worker updates. Unexpected external requests or JavaScript errors fail
 the check. Screenshots and results are saved in `test-results/`.
 
-The supplied repair's 70 adapter checks are retained in
+The supplied repair's adapter checks (expanded to 82) are retained in
 `academy-loading.test.cjs` alongside the regression tests. Its Python browser
 runner is in `academy-browser.py`; GitHub runs this against Chrome as well.
 The browser checks include the standalone Academy page, its offline cache,
@@ -41,8 +41,27 @@ offline after an online visit, and returning to an unsaved main-app form. Use a
 separate development origin so test data and service workers stay separate from
 the live app. This repository update does not publish that origin.
 
-The existing Documents view links to four files under `templates/` that are
-absent from the repository baseline. Those links have been preserved; the
-original editable Word/PDF quotation and invoice files must be supplied before
-their downloads can work. The built-in draft report and invoice previews are
-tested separately.
+The Documents view now downloads four recreated blank templates from `templates/`.
+They contain no customer information or invented company registration, banking or
+VAT details. Totals are manual. PDF saving depends on the chosen editor.
+
+Verify Word editing and all PDF field save/reopen operations:
+
+```sh
+python -m pip install python-docx==1.2.0 pypdf==6.1.1
+python tests/templates.py
+```
+
+Rebuild the files only when intentionally changing their layout:
+
+```sh
+python -m pip install python-docx==1.2.0 reportlab==4.4.3
+python scripts/build-templates.py
+```
+
+The expanded browser suite also tests downloads byte-for-byte, the new lessons
+at narrow widths, new quizzes offline and all four template downloads offline.
+Local browser execution in the rebuild environment was blocked by socket
+permissions (`listen EPERM`, Python `PermissionError` and Chromium `setsockopt`).
+The read-only GitHub Actions workflow runs these scenarios on a normal runner.
+See ACADEMY-RESTORATION.md for current results and remaining acceptance work.

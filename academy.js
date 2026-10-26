@@ -9,8 +9,8 @@
   if (!content || !grid) return;
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const subjects = {
-    fire: {name:'Fire Alarm Systems', lessons:['fire-basics','fire-ctec'], next:'Servicing records and supervised fault diagnosis'},
-    cctv: {name:'CCTV Systems', lessons:['cctv-basics','cctv-faults'], next:'Authorised recorder setup, networking and customer handover'},
+    fire: {name:'Fire Alarm Systems', lessons:['fire-basics','fire-ctec','fire-servicing'], next:'Servicing records and supervised fault diagnosis'},
+    cctv: {name:'CCTV Systems', lessons:['cctv-basics','cctv-faults','cctv-diagnosis'], next:'Authorised recorder setup, networking and customer handover'},
     electrical: {name:'Electrical', lessons:[], next:'Safe working, isolation awareness and electrical fundamentals'},
     intruder: {name:'Intruder Alarms', lessons:[], next:'Panels, detectors, secure access and supervised commissioning'},
     lighting: {name:'Emergency Lighting', lessons:[], next:'Maintained/non-maintained systems and test records'},
@@ -49,6 +49,142 @@
         {q:'A customer forgot a recorder password. What is appropriate?', options:['Verify ownership and use the authorised manufacturer recovery process','Try a password bypass tool','Share another customer’s account'], answer:0, why:'Account recovery requires authorisation and supported recovery channels.'}
       ]
     },
+    "fire-servicing": {
+  "title": "Fire alarm servicing: planning, records and supervised review",
+  "subject": "fire",
+  "minutes": 12,
+  "body": "<p><b>Draft for competent fire engineer review.</b> This lesson teaches preparation and factual reporting. It is not an approved servicing procedure, certification or permission to operate a system.</p><h4>1. Prepare the visit</h4><p>Identify the responsible person, premises, system category and exact panel model/revision. Obtain the zone chart, logbook, previous reports, cause-and-effect information and matching manufacturer instructions. Ask the competent supervisor which current BS 5839 requirements apply. Do not infer intervals or pass criteria from this lesson.</p><h4>2. Agree authorisation and impairment arrangements</h4><p>Before any planned test, the competent engineer agrees the work scope, site emergency procedure, occupant notifications, monitoring-centre coordination, interfaces and any permits with the responsible person. Any impairment needs an authorised plan and appropriate temporary measures. Do not start when authority or protection arrangements are unclear.</p><h4>3. Observe and record</h4><p>Without operating controls, record exact labels, colours, steady/flashing indications, affected zone and time. Use the matching C-TEC or other manufacturer's manual to distinguish fire, fault and disablement. A normal display is not proof that every device or output works. Fire indications or signs of fire require the site emergency procedure immediately.</p><h4>4. Supervised servicing and restoration</h4><p>Only an authorised competent engineer plans and performs the applicable inspection and testing using verified manuals and requirements. This lesson supplies no button sequences, wiring instructions or battery test limits. Do not open enclosures, disconnect supplies, silence/reset alarms or disable outputs on the basis of this lesson. Restoration must be verified against the agreed plan, including affected interfaces and monitoring arrangements, with unresolved impairment reported to the responsible person. Do not leave a disabled system recorded as healthy.</p><h4>5. Factual handover</h4><p>Record actual scope, observations, tests performed by authorised personnel, results, limitations, outstanding defects, impairment, person notified and agreed follow-up. Distinguish completed work from untested items. Neither a clear display nor this quiz is evidence of compliance or competency.</p><h4>Supervised exercise: a fictional visit</h4><ol><li>Using a training rig or fictional record pack, list missing documents and authorisations before work can begin.</li><li>Draft a factual observation for a flashing fault indicator without guessing its cause.</li><li>Write a handover that separates tested, untested and impaired items and identifies who must be notified.</li></ol><p>Review your notes with a competent supervisor. Record supervisor, training rig, date, observed activities and further training separately; the quiz does not sign off practical competence.</p>",
+  "questions": [
+    {
+      "q": "Why identify the exact panel model and manual revision?",
+      "options": [
+        "Controls and indications can differ between models and revisions",
+        "All conventional panels have identical controls",
+        "It replaces the site records"
+      ],
+      "answer": 0,
+      "why": "Use matching documentation and site records, confirmed by a competent supervisor."
+    },
+    {
+      "q": "What must be agreed before a planned alarm test?",
+      "options": [
+        "Only the appointment time",
+        "Authorisation, site/occupant and monitoring coordination, interfaces and impairment controls",
+        "Nothing if the panel looks normal"
+      ],
+      "answer": 1,
+      "why": "Testing can affect occupants, monitoring and other equipment; agree the authorised plan first."
+    },
+    {
+      "q": "Does a normal display establish that every device and output works?",
+      "options": [
+        "Yes",
+        "Yes, after a reset",
+        "No; applicable inspection and testing evidence is still required"
+      ],
+      "answer": 2,
+      "why": "A normal display alone cannot establish system performance or compliance."
+    },
+    {
+      "q": "What should a beginner do if the manual or work authority is unclear?",
+      "options": [
+        "Stop practical work and ask the competent supervisor",
+        "Try similar controls",
+        "Disconnect the standby battery"
+      ],
+      "answer": 0,
+      "why": "Do not improvise life-safety procedures or operate equipment beyond authorisation."
+    },
+    {
+      "q": "An impairment remains after the visit. What belongs in the handover?",
+      "options": [
+        "A statement that the system passed",
+        "The impairment, limitations, responsible-person notification and agreed action",
+        "Only the engineer's arrival time"
+      ],
+      "answer": 1,
+      "why": "Report unresolved impairment factually and maintain the authorised protection arrangements."
+    },
+    {
+      "q": "What does passing this quiz demonstrate?",
+      "options": [
+        "Permission to service independently",
+        "A compliant system certificate",
+        "This knowledge check only; competence and supervised assessment are separate"
+      ],
+      "answer": 2,
+      "why": "Training progress is not a qualification, certification or practical sign-off."
+    }
+  ]
+},
+    "cctv-diagnosis": {
+  "title": "CCTV diagnosis: symptom, scope, evidence and escalation",
+  "subject": "cctv",
+  "minutes": 12,
+  "body": "<p><b>Draft training for supervisor review.</b> Learn to narrow a reported problem without erasing footage, changing other channels or weakening security. Use fictional examples or an authorised training rig.</p><h4>1. Permission before investigation</h4><p>Confirm authority, affected channel, exact error, time last working and recent changes. Record recorder/camera models and firmware only through permitted access. Do not collect customer footage, credentials or unnecessary personal information for training. Use the matching Hikvision, HiLook, Swann or other manufacturer's documentation.</p><h4>2. One channel or all channels?</h4><p>For one missing image, record the channel and status. An authorised competent engineer can investigate compatible power, cabling, link and recording configuration using the actual design. For all channels, distinguish local monitor/display failure, recorder status, network outage and common camera-power symptoms. Do not assume a blank monitor means all recordings have stopped; do not change working channels to experiment.</p><h4>3. Live image but no playback</h4><p>Live view does not prove recording. Through an authorised account, a competent person checks the reported date/time, channel, recording status, schedule and storage alerts against the approved retention policy. Record evidence and preserve footage. Never initialise/format a disk, factory reset, erase recordings or change retention as a first troubleshooting step.</p><h4>4. Local works, mobile fails</h4><p>Record the approved app's exact error and whether the symptom occurs on the approved local or remote connection. Escalate connectivity and account permissions to the authorised administrator using the approved secure access method. Never expose recorder ports, disable firewalls or share credentials. Forgotten passwords require proof of authority and the manufacturer's approved recovery process.</p><h4>5. Beeping and handover</h4><p>A beeping recorder can report several exceptions. Capture the exact warning and time without personal footage or secrets and notify the responsible person. Do not silence alerts simply to hide a fault. Hand over symptom, affected scope, permitted observations, preservation needs, person notified and next authorised action; separate evidence from hypotheses.</p><h4>Supervised exercise: three fictional tickets</h4><ol><li>One camera shows no image: list evidence needed to distinguish a channel fault from a recorder-wide problem.</li><li>Live view works but playback is missing: draft a preservation-first escalation note without changing storage.</li><li>Local view works but the approved mobile app fails: write questions for the authorised network administrator without suggesting security bypasses.</li></ol><p>Discuss alternative causes with your supervisor. Record observations and further training separately from the quiz; do not use live customer footage.</p>",
+  "questions": [
+    {
+      "q": "One camera has no image. What is a useful first step?",
+      "options": [
+        "Reset every camera",
+        "Record the channel, exact error, time and recent changes",
+        "Change all recorder settings"
+      ],
+      "answer": 1,
+      "why": "Establish the affected scope and evidence before authorised diagnosis."
+    },
+    {
+      "q": "Every channel appears blank on a local monitor. What should the report distinguish?",
+      "options": [
+        "Display, recorder, network and common power symptoms",
+        "Only the monitor brand",
+        "A definite failed hard drive without evidence"
+      ],
+      "answer": 0,
+      "why": "A display problem and a recording problem are different; avoid unsupported conclusions."
+    },
+    {
+      "q": "Live view works but playback is missing. What next?",
+      "options": [
+        "Format the disk",
+        "Erase old footage",
+        "Check authorised recording evidence and escalate while preserving footage"
+      ],
+      "answer": 2,
+      "why": "Live view is separate from recording. Preserve evidence and use authorised checks."
+    },
+    {
+      "q": "Local access works but mobile viewing fails. What is appropriate?",
+      "options": [
+        "Disable network security",
+        "Record the approved app error and ask the authorised administrator to investigate",
+        "Publish recorder ports"
+      ],
+      "answer": 1,
+      "why": "Use the approved secure access method; do not weaken controls to restore viewing."
+    },
+    {
+      "q": "A recorder beeps with a storage warning. What should a beginner do?",
+      "options": [
+        "Record the exact warning and escalate without formatting or hiding it",
+        "Silence it and report success",
+        "Factory reset immediately"
+      ],
+      "answer": 0,
+      "why": "Warnings need evidence-led authorised investigation that preserves recordings."
+    },
+    {
+      "q": "How should a forgotten recorder password be handled?",
+      "options": [
+        "Share another customer's login",
+        "Use a bypass utility",
+        "Verify authority and follow the manufacturer's approved recovery route"
+      ],
+      "answer": 2,
+      "why": "Access recovery must preserve security and use authorised supported channels."
+    }
+  ]
+},
     'cctv-faults': {
       title:'CCTV: safe first checks and fault reporting', subject:'cctv', minutes:6,
       body:`<p><b>Goal:</b> record useful evidence and choose a safe next step without losing footage or weakening security.</p><h4>Start with permission and scope</h4><p>Confirm the site, affected camera/channel, exact symptom, when it began and any recent changes. Do not view or export footage beyond your authorisation. Photograph equipment labels or status messages only where permitted, avoiding passwords, access codes and personal footage.</p><h4>Decision tree: no picture</h4><ol><li><b>One camera affected?</b> Record the channel and error. A competent authorised engineer can check the supported power and cable path.</li><li><b>All cameras affected?</b> Record recorder/display status and whether the issue is local display, recording or remote access. Escalate with this distinction.</li><li><b>Local viewing works, remote viewing fails?</b> Record the approved app and connection error. Ask the authorised network administrator to check connectivity and permissions. Do not expose ports or disable security controls.</li></ol><h4>Recorder beeping or storage warning</h4><p>Record the exact message and time and inform the responsible person promptly. Beeping can have several causes, including storage or other exceptions. Do not format a disk, factory reset, erase recordings or silence warnings to hide the problem. A qualified authorised person should diagnose using the matching manual and evidence-preservation requirements.</p><h4>Manufacturer-specific next step</h4><p>For Hikvision, HiLook and Swann, record the exact camera and DVR/NVR models and firmware where accessible through an authorised account. Use the relevant official support documentation. Menus and supported recovery methods vary; this lesson does not invent shared button sequences.</p><h4>A useful handover note</h4><p>“Site / date / channel / reported symptom / observed message / scope affected / authorised checks performed / remaining risk / person notified / agreed next action.” Keep credentials out of notes.</p>`,

@@ -34,7 +34,7 @@ function academy({stored = new Map(), blocked = false} = {}) {
   };
 }
 
-const answers = {'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0]};
+const answers = {'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]};
 
 test('all six subjects open; unpublished paths cannot be marked complete',()=>{
   const a=academy();
