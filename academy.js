@@ -58,6 +58,14 @@
   };
   let currentSubject = null;
   let currentLesson = null;
+  let lastSubject = 'fire';
+  root.querySelector('[data-academy-return]')?.addEventListener('click', () => {
+    const workspace = document.querySelector('main');
+    if (!workspace) return;
+    workspace.setAttribute('tabindex', '-1');
+    workspace.focus();
+    workspace.scrollIntoView({block:'start'});
+  });
   function progressKey() {
     const user = typeof cloudSession !== 'undefined' && cloudSession?.user?.id;
     return 'paramount-academy-session-v1:' + (user || 'guest');
@@ -72,11 +80,12 @@
     const heading = content.querySelector('h3');
     heading?.focus();
   }
-  function home() { currentSubject=null; currentLesson=null; content.hidden=true; grid.hidden=false; root.querySelector('[data-academy-subject]')?.focus(); }
+  function home() { currentSubject=null; currentLesson=null; content.hidden=true; grid.hidden=false; root.querySelector(`[data-academy-subject="${lastSubject}"]`)?.focus(); }
   const notice = '<p class="academy-notice">Learning and quizzes are not qualifications, practical competency assessments or permission to work. Practical tasks require appropriate competence, supervision and authorisation.</p>';
   function subject(id) {
     const item = subjects[id]; if (!item) return;
     currentSubject=id; currentLesson=null;
+    lastSubject=id;
     const done=progress();
     show(`<button type="button" data-academy-home>← All subjects</button><h3 tabindex="-1">${item.name}</h3>${notice}<p>Progress is for this browser tab/session only, separated by signed-in account where available. It is not synced to Supabase or an official staff competency record.</p>
       <section class="academy-level"><h4>Beginner</h4>${item.lessons.length ? item.lessons.map(key=>`<button class="academy-lesson-link" type="button" data-academy-lesson="${key}">${lessons[key].title} · ${lessons[key].minutes} min${done[key] ? ' · Knowledge check passed' : ''}</button>`).join('') : `<p class="academy-planned">Planned — ${item.next}. Lessons are not available yet.</p>`}</section>
@@ -116,3 +125,4 @@
     root.querySelector('#academy-result').textContent=message;
   });
 })();
+
