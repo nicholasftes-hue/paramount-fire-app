@@ -1,0 +1,13 @@
+#academy{scroll-margin-top:20px;margin:20px auto;padding:20px;max-width:1100px;background:#f1f8fc;color:#173b5c;border-radius:16px}
+#academy,#academy *{box-sizing:border-box}#academy h2{color:#102c48}#academy .academy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+#academy .academy-card{display:block;width:100%;text-align:left;background:white;color:#173b5c;border:1px solid #b5d6e9;border-radius:12px;padding:18px;min-height:130px;font:inherit;cursor:pointer}
+#academy .academy-title{display:block;font-size:18px;font-weight:750;color:#12618a;margin-bottom:8px}#academy .academy-description{display:block;color:#405e72}
+#academy button{min-height:44px}#academy button:focus-visible,#academy a:focus-visible,#academy input:focus-visible{outline:3px solid #087d93;outline-offset:3px}
+#academy [hidden]{display:none!important}#academy .academy-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0}
+#academy .academy-notice{background:#fff;border-left:4px solid #168ac0;padding:12px 16px}#academy .academy-level{background:#fff;border:1px solid #cde5f3;border-radius:12px;padding:16px;margin:12px 0}
+#academy .academy-lesson-link{display:block;width:100%;text-align:left;background:#e6f6fd;color:#173b5c;margin:10px 0;border:1px solid #aacfe2}#academy .academy-planned{color:#536879}
+#academy .academy-steps{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0}#academy .academy-steps li{flex:1 1 140px;padding:14px;background:#e6f6fd;border:1px solid #b5d6e9;border-radius:8px}
+#academy article{max-width:800px}#academy article p,#academy article li{line-height:1.7}#academy fieldset{margin:16px 0;padding:16px;border:1px solid #b5d6e9;border-radius:10px}#academy legend{font-weight:700;padding:0 6px}#academy .academy-option{display:flex;align-items:flex-start;gap:12px;padding:10px;min-height:44px;font-size:15px;font-weight:400;color:#173b5c}#academy input[type=radio]{width:20px;height:20px;flex-shrink:0;margin:2px 0}
+#academy .academy-feedback{padding:12px;background:#edf8ff;border:1px solid #b5d6e9;border-radius:8px}#academy h3:focus,#academy h4:focus{outline:none}
+@media(max-width:600px){#academy{margin:12px;padding:16px}#academy .academy-grid{grid-template-columns:1fr}#academy .academy-toolbar button{flex:1}#academy fieldset{padding:10px}}
+

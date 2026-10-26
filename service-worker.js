@@ -1,1 +1,37 @@
-const CACHE='paramount-demo-v3-pat';const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));self.addEventListener('fetch',e=>{if(e.request.method==='GET'&&new URL(e.request.url).origin===self.location.origin)e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)))});
+// Bump this version with every app-shell release. Never cache cloud/auth requests.
+const CACHE = 'paramount-shell-academy-v5';
+const ASSETS = ['./index.html', './index-3.html', './academy.js', './academy.css', './app-updates.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './academy-test.html', './templates/Paramount_Quotation_Editable.docx', './templates/Paramount_Quotation_Fillable.pdf', './templates/Paramount_Invoice_Editable.docx', './templates/Paramount_Invoice_Fillable.pdf'];
+const shell = new Map(ASSETS.map(path => [new URL(path, self.registration.scope).pathname, new URL(path, self.registration.scope).href]));
+shell.set(new URL('./', self.registration.scope).pathname, new URL('./index.html', self.registration.scope).href);
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  // Wait for explicit user consent before replacing an active worker.
+});
+self.addEventListener('message', event => {
+  if (event.data?.type === 'ACTIVATE_UPDATE') self.skipWaiting();
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key =>
+    key !== CACHE && (key.startsWith('paramount-demo-') || key.startsWith('paramount-shell-'))
+  ).map(key => caches.delete(key)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  const canonical = shell.get(url.pathname);
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin || !canonical) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    try {
+      const response = await fetch(event.request, {cache:'no-store'});
+      if (!response.ok) return (await cache.match(canonical)) || response;
+      // A quota/storage failure must not discard a successful download.
+      try { await cache.put(canonical, response.clone()); } catch {}
+      return response;
+    } catch (error) {
+      const cached = await cache.match(canonical);
+      if (cached) return cached;
+      throw error;
+    }
+  })());
+});
+

@@ -15,7 +15,7 @@
   try {
     // The existing white V9 app is already in the same GitHub Pages folder.
     // Fetch it fresh so the dark version cannot be supplied by browser cache.
-    const response=await fetch('./index-3.html?white-dashboard-v9=20261023',{cache:'no-store'});
+    const response=await fetch('./index-3.html?white-dashboard-v9=academy-3',{cache:'no-store'});
     if(!response.ok) throw new Error('White dashboard file not found ('+response.status+')');
     let html=await response.text();
     if(!html.includes('WHITE DASHBOARD')||!html.includes('home-hero')) throw new Error('The published file is not the expected white dashboard.');
@@ -31,9 +31,32 @@
       .home-nav,.tabs,.introbar{background:#fff!important}
     </style>`;
     html=html.replace('</head>',extra+'</head>');
+    // Load external modules explicitly after the replacement document exists.
+    // document.write external-script timing differs from direct page navigation.
+    const modules = [];
+    html = html.replace(/<script\b([^>]*\bsrc=["']([^"']+)["'][^>]*)>\s*<\/script>/gi, (tag, attributes, src) => {
+      modules.push(src);
+      return '';
+    });
     document.open();document.write(html);document.close();
+    for (const src of modules) {
+      await new Promise(resolve => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = false;
+        script.onload = resolve;
+        script.onerror = () => {
+          const status = document.getElementById('academy-status');
+          if (status && src.includes('academy.js')) status.textContent = 'Academy could not load. Check your connection and reload, or open academy-test.html.';
+          resolve(); // A module failure must not remove the working service app.
+        };
+        document.body.append(script);
+      });
+    }
   }catch(err){
-    document.getElementById('loading').innerHTML='<h1>Paramount Fire Protection</h1><p>The white dashboard could not be opened.</p><p id="err"></p><p><a href="./index-3.html?direct=1">Try opening the white dashboard directly</a></p>';
+    const loading = document.getElementById('loading');
+    if (!loading) { console.error('App loader failed after document replacement', err); return; }
+    loading.innerHTML='<h1>Paramount Fire Protection</h1><p>The white dashboard could not be opened.</p><p id="err"></p><p><a href="./index-3.html?direct=1">Try opening the white dashboard directly</a></p>';
     document.getElementById('err').textContent=err.message;
   }
 })();
