@@ -23,7 +23,7 @@ worker updates and script-load error recovery. See `tests/README.md` for setup.
 The supplied Python runner is also available:
 
 ```sh
-python -m pip install playwright==1.56.1
+python -m pip install playwright==1.56.0
 python -m playwright install chromium webkit firefox
 python tests/academy-browser.py --browser chromium
 python tests/academy-browser.py --browser webkit
