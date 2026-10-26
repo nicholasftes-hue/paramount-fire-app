@@ -1,0 +1,29 @@
+name: Mark demo isolated preview package
+on:
+  push:
+    branches: [mark-demo-2026-10-27]
+    paths:
+      - 'mark-demo-standalone.html'
+      - 'tests/mark-demo-isolation.test.cjs'
+      - '.github/workflows/mark-demo-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check isolated demo
+        run: node --test tests/mark-demo-isolation.test.cjs
+      - name: Prepare dedicated preview artifact
+        run: |
+          mkdir -p preview
+          cp mark-demo-standalone.html preview/index.html
+          printf '%s\n' 'MARK DEMO ONLY - FICTIONAL DATA - NOT PRODUCTION' > preview/README.txt
+      - name: Upload preview ZIP artifact (no Pages deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: paramount-mark-demo-preview
+          path: preview/
+          if-no-files-found: error
