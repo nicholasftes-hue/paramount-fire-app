@@ -49,7 +49,10 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     browser=await chromium.launch(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox']}:{});
     async function fresh(options={}){
       const ctx=await browser.newContext(options);
-      await ctx.addInitScript(value=>{if(!localStorage.getItem('paramount-demo-v1'))localStorage.setItem('paramount-demo-v1',JSON.stringify(value))},seed);
+      await ctx.addInitScript(value=>{
+        // New pages and print popups may start with an opaque blank origin.
+        if(location.protocol==='http:'&&!localStorage.getItem('paramount-demo-v1'))localStorage.setItem('paramount-demo-v1',JSON.stringify(value));
+      },seed);
       await ctx.route('https://**/*',route=>{external.push(route.request().url());return route.abort()});
       ctx.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
       return ctx;
