@@ -104,7 +104,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     });
     await check('Academy and return button preserve property draft and stored records',async()=>{
       assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('paramount-demo-v1'))),seed);
-      await page.locator('[data-go="Properties"]').first().click();
+      await page.locator('.home-management [data-tab="Properties"]').click();
       await page.locator('form[data-type="properties"] input[name="name"]').fill('Unsaved property draft');
       await lesson(page,'fire-basics');await page.locator('[data-academy-return]').click();
       assert.equal(await page.locator('form[data-type="properties"] input[name="name"]').inputValue(),'Unsaved property draft');
@@ -154,7 +154,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
       oldWorker=true;const ctx=await fresh();
       try{
         const p=await ctx.newPage();await ready(p,base);await offlineReady(p);
-        await p.locator('[data-go="Properties"]').first().click();await p.locator('input[name="name"]').fill('Keep this draft');
+        await p.locator('.home-management [data-tab="Properties"]').click();await p.locator('input[name="name"]').fill('Keep this draft');
         oldWorker=false;await p.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()});
         await p.locator('#app-update button').waitFor();
         p.once('dialog',dialog=>dialog.dismiss());await p.locator('#app-update button').click();
