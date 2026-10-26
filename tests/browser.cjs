@@ -122,7 +122,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
       for(const name of ['Properties','Service Records','Inventory','PAT Testing','Emergency Lighting','Planner','Quotes','Documents','Cloud Properties','Job Packs']){
         await page.locator(`[data-tab="${name}"]`).click();
         assert((await page.locator('#view').innerText()).length>0);
-        if(name==='PAT Testing')await page.locator('#patRows').waitFor({state:'attached'});
+        if(name==='PAT Testing')await page.locator('form[data-main-form="pat"] input[name="asset"]').waitFor({state:'attached'});
       }
       await page.locator('#packEngineer').fill('Test engineer');await page.locator('#packFire').check();
       await page.locator('[data-make-pack]').click();
