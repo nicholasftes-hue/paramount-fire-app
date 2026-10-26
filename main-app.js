@@ -189,9 +189,13 @@
     target.innerHTML=html||'<p>No history recorded.</p>';
   }
   function scheduleSummary() {
-    const t=today();const visits=list('visit').filter(r=>!['Completed','Cancelled'].includes(r.values.status)).sort((a,b)=>(a.values.date+a.values.time).localeCompare(b.values.date+b.values.time));
-    const follow=list().filter(r=>r.values.next&&r.values.next<=new Date(Date.now()+30*86400000).toISOString().slice(0,10));
-    return `<section class="panel"><h2>Service reminders</h2><p>On-screen reminders only. No unattended email, SMS or background delivery is configured.</p>${visits.map(r=>`<p><b>${r.values.date<t?'Overdue':'Upcoming'}</b> ${safe(r.values.date)} ${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)}</p>`).join('')||'<p>No active visits.</p>'}${follow.map(r=>`<p>Follow-up ${safe(r.values.next)} · ${safe(names[r.kind])} · ${safe(propertyName(r.values.property))}</p>`).join('')}</section>`;
+    const t=today();
+    const dateAt=day=>new Date(day+'T12:00:00');
+    const daysUntil=day=>Math.round((dateAt(day)-dateAt(t))/86400000);
+    const visits=list('visit').filter(r=>!['Completed','Cancelled'].includes(r.values.status)).sort((a,b)=>(a.values.date+a.values.time).localeCompare(b.values.date+b.values.time));
+    const follow=list().filter(r=>r.values.next&&daysUntil(r.values.next)<=30).sort((a,b)=>a.values.next.localeCompare(b.values.next));
+    const followLabel=day=>{const n=daysUntil(day);return n<0?'Overdue by '+(-n)+' day(s)':n===0?'Due today':n<=7?'Due within 7 days':'Due within 30 days'};
+    return `<section class="panel"><h2>Service reminders</h2><p>On-screen 30-day and 7-day reminders only. No unattended email, SMS or background delivery is configured.</p>${visits.map(r=>`<p><b>${r.values.date<t?'Overdue':'Upcoming'}</b> ${safe(r.values.date)} ${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)}</p>`).join('')||'<p>No active visits.</p>'}${follow.map(r=>`<p><b>${safe(followLabel(r.values.next))}</b> · ${safe(r.values.next)} · ${safe(names[r.kind])} · ${safe(propertyName(r.values.property))}</p>`).join('')||'<p>No follow-ups due within 30 days.</p>'}</section>`;
   }
   function officeSummary() {
     return `<section class="panel"><h2>Office dashboard</h2><p>${list('enquiry').filter(r=>r.values.status!=='Closed').length} open enquiries · ${list('callout').filter(r=>r.values.status!=='Closed after verification').length} open call-outs / defects · ${list('quote').length} draft quotes · ${list('invoice').length} draft invoices</p><p>Follow-ups and engineer visits appear below. Public enquiry submission and automatic messages are not configured.</p><div class="main-actions"><button data-tab="Call-outs">Call-outs</button><button data-tab="Quotes">Quotes</button><button data-tab="Invoices">Invoices</button><button data-tab="Planner">Planner</button></div></section>`+scheduleSummary();
