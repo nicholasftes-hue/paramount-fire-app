@@ -31,7 +31,7 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  const popupPromise=p.waitForEvent('popup');await p.locator('[data-main-print]').click();const popup=await popupPromise;await popup.waitForLoadState();assert.match(await popup.locator('body').innerText(),/DRAFT.*NOT ISSUED/);assert.match(await popup.locator('body').innerText(),/£0.36/);await popup.close();
  });
  await check('saved edits append revisions and safely render script-like text',async()=>{
- await tab('Call-outs');await p.locator('[data-main-edit]').click();await save({...common,issue:'<img src=x onerror=alert(1)> test'});assert.match(await p.locator('.main-record').innerText(),/revision 2/);assert.equal(await p.locator('.main-record img').count(),0);assert.match(await p.locator('.main-record').innerText(),/Revision 1/);
+ await tab('Call-outs');await p.locator('[data-main-edit]').click();await save({...common,issue:'<img src=x onerror=alert(1)> test'});assert.match(await p.locator('.main-record').innerText(),/revision 2/);assert.equal(await p.locator('.main-record img').count(),0);await p.locator('.main-record>details>summary').click();assert.match(await p.locator('.main-record').innerText(),/Revision 1/);
  });
  await check('planner prevents engineer overlaps without changing saved records',async()=>{
  await tab('Planner');await fill({...common,engineer:'Test engineer',time:'09:30',minutes:'60',serviceType:'PAT',status:'Planned',notes:'Test overlap'});await p.locator('form[data-main-form] button[type=submit]').click();assert.match(await p.locator('#main-status').innerText(),/overlapping/);assert.equal(await p.locator('.main-record').count(),1);
