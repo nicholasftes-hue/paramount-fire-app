@@ -26,7 +26,11 @@ const server=http.createServer((req,res)=>{
 
 async function check(name,fn){await fn();results.push({name,status:'passed'});console.log('PASS:',name)}
 async function ready(page,url){await page.goto(url);await page.locator('[data-academy-subject="fire"]').waitFor();await page.waitForFunction(()=>document.querySelector('#view')?.children.length>0)}
-async function allSubjects(page){if(await page.locator('[data-academy-home]').isVisible())await page.locator('[data-academy-home]').click()}
+async function allSubjects(page){
+  if(await page.locator('[data-academy-back]').first().isVisible())await page.locator('[data-academy-back]').first().click();
+  if(await page.locator('[data-academy-home]').isVisible())await page.locator('[data-academy-home]').click();
+  assert(await page.locator('.academy-grid').isVisible());
+}
 async function lesson(page,id){
   await allSubjects(page);
   await page.locator(`[data-academy-subject="${id.startsWith('fire')?'fire':'cctv'}"]`).click();
