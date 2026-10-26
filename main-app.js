@@ -141,7 +141,7 @@
   }
   function recordCard(r) {
     const v=r.values;
-    return `<article class="main-record"><h3>${safe(names[r.kind])} · ${safe(v.number||v.asset||v.title||v.status||'Draft')}</h3><p>${safe(v.date)} · ${safe(propertyName(v.property)||v.site)}<br>${safe(v.engineer||v.customer||v.manufacturer||'')} · revision ${r.revision}</p>${v.next?`<p>Follow-up: ${safe(v.next)}</p>`:''}${['quote','invoice'].includes(r.kind)?`<p>${pounds(totals(v).total)} · DRAFT — not issued</p>`:''}<div class="main-actions"><button type="button" data-main-edit="${r.id}">Review / edit</button><button type="button" data-main-print="${r.id}">Preview / PDF draft</button>${r.kind==='quote'?`<button type="button" data-main-convert="${r.id}">Prepare invoice</button>`:''}</div><details><summary>Record details and revision history</summary>${detail(r)}${(r.history||[]).map(h=>`<details><summary>Revision ${h.revision} · ${safe(h.updated)}</summary>${detail({...r,values:h.values,history:[]})}</details>`).join('')}</details></article>`;
+    return `<article class="main-record"><h3>${safe(names[r.kind])} · ${safe(v.number||v.asset||v.title||v.status||'Draft')}</h3><p>${safe(v.date)} · ${safe(propertyName(v.property)||v.site)}<br>${safe(v.engineer||v.customer||v.manufacturer||'')} · revision ${r.revision}</p>${v.next?`<p>Follow-up: ${safe(v.next)}</p>`:''}${['quote','invoice'].includes(r.kind)?`<p>${pounds(totals(v).total)} · DRAFT — not issued</p>`:''}<div class="main-actions"><button type="button" data-main-edit="${r.id}">Review / edit</button><button type="button" data-main-print="${r.id}">Preview / PDF draft</button>${r.kind==='quote'?`<button type="button" data-main-convert="${r.id}">Prepare invoice</button>`:''}${['service','callout','installation','extinguisher'].includes(r.kind)?`<button type="button" data-main-job-quote="${r.id}">Prepare quotation</button>`:''}</div><details><summary>Record details and revision history</summary>${detail(r)}${(r.history||[]).map(h=>`<details><summary>Revision ${h.revision} · ${safe(h.updated)}</summary>${detail({...r,values:h.values,history:[]})}</details>`).join('')}</details></article>`;
   }
   function detail(r) {
     let result=Object.entries(r.values).map(([key,value])=>`<p><b>${safe(key)}:</b> ${safe(value)}</p>`).join('');
@@ -243,12 +243,25 @@
     if(e.target.id==='main-import'&&e.target.files?.[0])try{if(e.target.files[0].size>10000000)throw Error('Backup exceeds 10 MB.');const data=JSON.parse(await e.target.files[0].text());if(!confirm('Merge this backup into the current workspace? Existing records and forms will not be overwritten.'))return;merge(data);render();message('Backup merged. Existing drafts were retained.')}catch(error){message('Import rejected: '+error.message)}
   });
   document.addEventListener('click',async e=>{
-    const b=e.target.closest('[data-main-edit],[data-main-print],[data-main-clear],[data-main-convert],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
+    const b=e.target.closest('[data-main-edit],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
     load();try{
       if(b.dataset.mainEdit){const r=record(b.dataset.mainEdit);if(!r)return;remember();const existing=state.drafts[r.kind];if(existing&&Object.values(existing.values).some(Boolean)&&!confirm('Replace the unfinished form with this saved record?'))return;commit(s=>s.drafts[r.kind]={values:r.values,editing:{id:r.id,revision:r.revision},updated:now()});document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');tab=Object.keys(pages).find(k=>pages[k]===r.kind);render();document.querySelector('form[data-main-form]')?.scrollIntoView({block:'start'});}
       else if(b.dataset.mainPrint)preview(b.dataset.mainPrint);
       else if(b.dataset.mainClear){if(!confirm('Clear this unfinished form? Saved records are kept.'))return;commit(s=>delete s.drafts[b.dataset.mainClear]);document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');render()}
       else if(b.dataset.mainConvert){const r=record(b.dataset.mainConvert);if(!r)return;remember();if(state.drafts.invoice&&!confirm('Replace the unfinished invoice form? Saved invoices are kept.'))return;commit(s=>s.drafts.invoice={values:{...r.values,number:'',source:r.values.number,date:today(),due:'',reviewed:''},editing:null,updated:now()});document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');tab='Invoices';render()}
+      else if(b.dataset.mainJobQuote){
+        const r=record(b.dataset.mainJobQuote);
+        if(!r || !['service','callout','installation','extinguisher'].includes(r.kind))throw Error('Only saved engineering jobs can prepare quotations.');
+        remember();
+        if(state.drafts.quote && Object.values(state.drafts.quote.values||{}).some(Boolean) && !confirm('Replace the unfinished quotation form? Saved quotations are kept.'))return;
+        const reference=r.values.number||r.values.asset||r.id;
+        const summary=[r.values.issue,r.values.defects,r.values.actions].filter(Boolean).join(' / ').slice(0,1500);
+        commit(s=>{s.drafts.quote={values:{property:r.values.property,date:today(),number:'',customer:'',address:'',due:'',lines:'',vat:'0',vatNumber:'',source:reference,terms:summary?'Job observations (verify before quoting): '+summary:'',reviewed:''},editing:null,updated:now()}});
+        document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');
+        tab='Quotes';render();
+        message('Quotation draft prepared from saved job. Enter billing details, agreed scope, quantities and prices; nothing has been issued.');
+        document.querySelector('form[data-main-form]')?.scrollIntoView({block:'start'});
+      }
       else if(b.hasAttribute('data-main-export'))download('paramount-workspace-backup.json',JSON.stringify(exportData(),null,2));
       else if(b.hasAttribute('data-main-raw'))download('paramount-workspace-raw.txt',localStorage.getItem(storageKey())||'');
       else if(b.hasAttribute('data-main-upload'))await upload();
