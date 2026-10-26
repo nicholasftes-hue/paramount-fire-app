@@ -21,6 +21,7 @@
     if (!raw) return empty();
     const data = JSON.parse(raw);
     if (data.version!==VERSION || !Array.isArray(data.records) || !data.drafts || typeof data.drafts!=='object') throw Error('Stored workspace is unreadable. Export the raw backup before continuing. It has not been replaced.');
+    for(const r of data.records){if(!r||typeof r.id!=='string'||!kinds.includes(r.kind)||!Number.isInteger(r.revision)||r.revision<1||!Array.isArray(r.history))throw Error('Stored records are unreadable. Export the raw backup for recovery.');validate(r.kind,r.values);for(const h of r.history)validate(r.kind,h.values)}
     return data;
   }
   function load() {
@@ -113,6 +114,7 @@
       if(Number(v.vat)>0&&!v.vatNumber?.trim())throw Error('Enter the verified VAT registration before preparing a VAT draft.');
     }
     if(kind==='visit'&&(!/^\d+$/.test(v.minutes)||Number(v.minutes)<1||Number(v.minutes)>1440||!/^([01]\d|2[0-3]):[0-5]\d$/.test(v.time)))throw Error('Enter a valid time and duration from 1 to 1440 minutes.');
+    if(kind==='visit'&&(Number(v.time.slice(0,2))*60+Number(v.time.slice(3))+Number(v.minutes)>1440))throw Error('Split overnight visits into separate dated visits.');
     if(kind==='drawing'){if(!rectangles(v.layout).length)throw Error('Enter a layout element.');rectangles(v.markers,true)}
     if(kind==='equipment'&&new URL(v.url).protocol!=='https:')throw Error('Guide links must use HTTPS.');
     if(v.next&&v.next<v.date)throw Error('Follow-up date cannot precede the record date.');
