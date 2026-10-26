@@ -1,7 +1,7 @@
-name: Academy checks
+name: Main app and Academy checks
 on:
   pull_request:
-    branches: [main]
+    branches: [main, paramount-academy-update]
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,6 +23,9 @@ jobs:
       - run: npm run test:browser
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - run: npm run test:main-browser
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -31,9 +34,20 @@ jobs:
       - run: python tests/academy-browser.py --browser chromium
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - name: Package complete source backup
+        run: |
+          git archive --format=zip --output=paramount-main-app-backup.zip HEAD
+          sha256sum paramount-main-app-backup.zip > paramount-main-app-backup.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paramount-main-app-source-backup
+          path: |
+            paramount-main-app-backup.zip
+            paramount-main-app-backup.zip.sha256
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: academy-browser-results
           path: test-results/
           if-no-files-found: ignore
+

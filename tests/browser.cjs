@@ -20,7 +20,7 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
   res.setHeader('Cache-Control','no-store');
   let body=fs.readFileSync(file);
-  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-academy-v5','paramount-shell-academy-test-old'));
+  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-main-app-v6','paramount-shell-academy-test-old'));
   res.end(body);
 });
 
@@ -223,7 +223,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         p.once('dialog',dialog=>dialog.dismiss());await p.locator('#app-update button').click();
         assert.equal(await p.locator('input[name="name"]').inputValue(),'Keep this draft');
         p.once('dialog',dialog=>dialog.accept());await p.locator('#app-update button').click();
-        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-academy-v5')&&!keys.includes('paramount-shell-academy-test-old')});
+        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-main-app-v6')&&!keys.includes('paramount-shell-academy-test-old')});
         await p.locator('[data-academy-subject="fire"]').waitFor();
       }finally{oldWorker=false;await ctx.close()}
     });
@@ -237,3 +237,4 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     if(context)await context.close();if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));
   }
 })();
+
