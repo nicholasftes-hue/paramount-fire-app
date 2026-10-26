@@ -84,4 +84,47 @@ document.addEventListener('click',async e=>{
  if(e.target.id==='cloudRefresh')cloudLoadProperties();
 });
 
-render();if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("./service-worker.js").catch(()=>{});</script></body></html>
+render();if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("./service-worker.js").catch(()=>{});</script>
+
+<style>
+#academy{background:#f1f8fc;color:#173b5c;padding:20px;border-radius:16px;margin:20px auto;max-width:1100px}
+#academy h2{color:#102c48}
+.academy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.academy-card{background:white;border:1px solid #cde5f3;border-radius:12px;padding:18px}
+.academy-card h3{color:#126d9d;margin:0 0 8px}
+.academy-card p{color:#536879}
+</style>
+
+<section id="academy">
+<h2>🎓 Paramount Staff Learning Academy</h2>
+<p>Training for engineers, office staff and new starters.</p>
+<div class="academy-grid">
+<div class="academy-card">
+<h3>🔥 Fire Alarm Systems</h3>
+<p>Installation, panel operation, servicing and fault finding.</p>
+</div>
+<div class="academy-card">
+<h3>📹 CCTV Systems</h3>
+<p>IP, analogue, DVR, NVR, networking and fault finding.</p>
+</div>
+<div class="academy-card">
+<h3>⚡ Electrical</h3>
+<p>Fundamentals, testing, inspection and safe working.</p>
+</div>
+<div class="academy-card">
+<h3>🚨 Intruder Alarms</h3>
+<p>Detectors, control panels, installation and diagnostics.</p>
+</div>
+<div class="academy-card">
+<h3>💡 Emergency Lighting</h3>
+<p>System types, maintenance, testing and records.</p>
+</div>
+<div class="academy-card">
+<h3>🧰 Engineer Skills</h3>
+<p>Tools, customer service, reporting and site safety.</p>
+</div>
+</div>
+<p><small>Training overview. Practical work requires appropriate competence and authorisation.</small></p>
+</section>
+
+</body></html>
