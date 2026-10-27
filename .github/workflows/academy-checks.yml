@@ -1,7 +1,7 @@
 name: Main app and Academy checks
 on:
   pull_request:
-    branches: [main, paramount-academy-update]
+    branches: [main, paramount-academy-update, paramount-main-app-development]
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,6 +34,19 @@ jobs:
       - run: python tests/academy-browser.py --browser chromium
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - name: Test isolated demo engineering workflows
+        run: npm run test:main-browser
+        env:
+          PARAMOUNT_APP_ROOT: /tmp/paramount-mark-demo-check/site
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - name: Test isolated demo offline and mobile layouts
+        run: node tests/demo-browser.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paramount-mark-demo-isolated
+          path: /tmp/paramount-mark-demo-check/paramount-mark-demo-2026-10-27.zip
       - name: Package complete source backup
         run: |
           git archive --format=zip --output=paramount-main-app-backup.zip HEAD

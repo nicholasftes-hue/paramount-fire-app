@@ -1,7 +1,7 @@
 // Isolated local fictional records only. All external service requests are blocked.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const {chromium}=require('playwright');
-const root=path.resolve(__dirname,'..'),results=[],errors=[],external=[];
+const root=path.resolve(process.env.PARAMOUNT_APP_ROOT||path.join(__dirname,'..')),results=[],errors=[],external=[];
 const server=http.createServer((req,res)=>{
  const relative=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html',file=path.resolve(root,relative);
  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.writeHead(404).end();return}
@@ -18,7 +18,7 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  await p.goto(base);await p.waitForFunction(()=>!!window.ParamountMainApp);
  async function tab(name){await p.locator(`[data-tab="${name}"]:visible`).first().click();await p.locator('.main-app').waitFor()}
  async function fill(values){await p.locator('form[data-main-form]').evaluate((form,values)=>{for(const [name,value]of Object.entries(values)){if(value===undefined)continue;const el=form.elements.namedItem(name);if(!el)throw Error('Missing field '+name);if(el.type==='checkbox')el.checked=!!value;else el.value=value}form.dispatchEvent(new Event('input',{bubbles:true}));form.elements.reviewed.checked=true},values)}
- async function save(values){await fill(values);await p.locator('form[data-main-form] button[type=submit]').click();await p.waitForFunction(()=>document.getElementById('main-status')?.textContent.startsWith('Draft saved'));}
+ async function save(values){await fill(values);await p.locator('form[data-main-form] button[type=submit]:not([name])').click();await p.waitForFunction(()=>document.getElementById('main-status')?.textContent.startsWith('Draft saved'));}
  const common={property:'P001',date:'2026-10-26',reviewed:'yes'};
  await check('all core draft forms save and retain records after reload',async()=>{
  const cases=[['Service Records',{engineer:'Test engineer',system:'Fictional panel',standard:'Agreed scope TEST',tests:'Zone 1 tested — fictional',battery:'Not inspected',measurements:'Not measured — training fixture',defects:'No conclusion — test',actions:'Test advice',recipient:'Fictional recipient',declaration:'Training fixture only'}],['Extinguishers',{engineer:'Test engineer',asset:'EXT-1',location:'Fictional hall',model:'Test model',capacity:'Test type',visitType:'Inspection only',tests:'Training fixture',outcome:'Not serviced / inaccessible',defects:'No service performed'}],['Installation Forms',{engineer:'Test engineer',stage:'Commissioning record',system:'Test system',standard:'Test scope',drawingRef:'D1',devices:'Test device',tests:'Fictional results',defects:'Test limitation',actions:'Test handover',recipient:'Test recipient',declaration:'Draft fixture only'}],['Quotes',{number:'Q-TEST-1',customer:'Test customer',address:'Fictional address',due:'2026-11-26',lines:'Test service | 3 | 0.10',vat:'20',vatNumber:'TEST',terms:'Draft test'}],['Planner',{engineer:'Test engineer',time:'09:00',minutes:'60',serviceType:'Fire alarm',status:'Confirmed',notes:'Test access'}],['Call-outs',{engineer:'Test engineer',number:'C-TEST',priority:'Routine',status:'Open',issue:'Fictional issue',defects:'Test defect',actions:'Test follow-up'}],['Office',{customer:'Test customer',contact:'TEST ONLY',site:'Fictional site',status:'New',owner:'Test office',notes:'Fictional enquiry'}],['Drawing Studio',{title:'Test layout revision 1',layout:'Hall | 0 | 0 | 100 | 50',markers:'Test detector | 20 | 20',notes:'Not to scale — fictional'}],['Equipment Library',{manufacturer:'SmartCell',model:'TEST MODEL',title:'Test guide reference',url:'https://example.com/fictional-guide',checked:'2026-10-26',notes:'Placeholder reference — no verified manual'}]];
@@ -34,7 +34,7 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  await tab('Call-outs');await p.locator('[data-main-edit]').click();await save({...common,issue:'<img src=x onerror=alert(1)> test'});assert.match(await p.locator('.main-record').innerText(),/revision 2/);assert.equal(await p.locator('.main-record img').count(),0);await p.locator('.main-record>details>summary').click();assert.match(await p.locator('.main-record').innerText(),/Revision 1/);
  });
  await check('planner prevents engineer overlaps without changing saved records',async()=>{
- await tab('Planner');await fill({...common,engineer:'Test engineer',time:'09:30',minutes:'60',serviceType:'PAT',status:'Planned',notes:'Test overlap'});await p.locator('form[data-main-form] button[type=submit]').click();assert.match(await p.locator('#main-status').innerText(),/overlapping/);assert.equal(await p.locator('.main-record').count(),1);
+ await tab('Planner');await fill({...common,engineer:'Test engineer',time:'09:30',minutes:'60',serviceType:'PAT',status:'Planned',notes:'Test overlap'});await p.locator('form[data-main-form] button[type=submit]:not([name])').click();assert.match(await p.locator('#main-status').innerText(),/overlapping/);assert.equal(await p.locator('.main-record').count(),1);
  });
  await check('property history contains all site workflows and preserves original records',async()=>{
  await tab('Property History');await p.locator('#main-history-property').selectOption('P001');assert.equal(await p.locator('#main-history>.main-record').count(),9);assert.match(await p.locator('#main-history').innerText(),/Existing prototype records/);
@@ -50,6 +50,12 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  });
  await check('workspace backup downloads without authentication tokens',async()=>{
  await tab('Record Backup');const pending=p.waitForEvent('download');await p.locator('[data-main-export]').click();const file=await pending;const data=JSON.parse(fs.readFileSync(await file.path(),'utf8'));assert.equal(data.records.length,10);assert(!JSON.stringify(data).includes('access_token'));assert.equal(data.scope,'device-guest');
+ });
+ await check('battery readings and quick PAT entry preserve setup and clear results',async()=>{
+ await tab('Service Records');await p.locator('[data-main-edit]').first().click();await save({...common,battery:'Satisfactory',batteryVoltage:'24.1',batteryAh:'7'});assert.match(await p.locator('.main-record').first().innerText(),/24.1/);
+ await tab('PAT Testing');await fill({...common,engineer:'Test engineer',instrument:'I-TEST',calibration:'C-TEST',asset:'A1',appliance:'Kettle',location:'Fictional kitchen',equipmentClass:'Class I',visual:'Fictional inspection',tests:'Fictional actual reading',outcome:'Pass within recorded test scope',defects:'Fictional observation'});
+ await p.locator('button[name=patNext]').click();await p.waitForFunction(()=>document.getElementById('main-status')?.textContent.startsWith('Draft saved'));
+ assert.equal(await p.locator('[name=instrument]').inputValue(),'I-TEST');for(const name of ['asset','visual','tests','outcome','defects'])assert.equal(await p.locator(`[name=${name}]`).inputValue(),'');assert.equal(await p.locator('[name=reviewed]').isChecked(),false);assert.equal(await p.locator('.main-record').count(),1);
  });
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log(`PASS: ${results.length} main-app browser scenarios; no external requests or browser errors`);
  }catch(error){results.push({name:'main-app browser run',status:'failed',error:error.stack});console.error(error);process.exitCode=1}
