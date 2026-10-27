@@ -32,6 +32,12 @@ w, other, prop = uid(), uid(), uid()
 users = [uid() for _ in range(4)]
 sql("create role anon nologin; create role authenticated nologin; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$; grant usage on schema auth to authenticated,anon; grant execute on function auth.uid() to authenticated,anon;")
 migration = Path('sql/team-sync-isolated.sql').read_text()
+# A conflicting public RPC must survive a rejected migration unchanged.
+sql("create function public.paramount_sync_list(text) returns text language sql as $$select 'existing'::text$$;")
+sql("set paramount.isolated_sync_test='yes';" + migration, False)
+assert sql("select to_regnamespace('paramount_sync') is null") == 't'
+assert sql("select public.paramount_sync_list('sentinel'::text)") == 'existing'
+sql("drop function public.paramount_sync_list(text);")
 sql(migration, False)  # Missing explicit isolated-test acknowledgement rolls back.
 assert sql("select to_regnamespace('paramount_sync') is null") == 't'
 sql("set paramount.isolated_sync_test='yes';" + migration)
@@ -101,3 +107,4 @@ as_user(users[2], f"select public.paramount_sync_list({literal(w)})", False)
 write(users[2], prop, 'property', None, site, version=2, ok=False)
 assert sql("select count(*) from paramount_sync.operations") == '8'
 print('PASS: isolated migration rollback/reapply guards, RLS/direct access denial, three staff, fourth/anonymous/foreign/revoked denial, real concurrent CAS, idempotency, property/service/PAT/lighting validation and immutable audit/revisions')
+

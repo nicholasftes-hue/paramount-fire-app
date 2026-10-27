@@ -8,6 +8,15 @@ do $$ begin
   if to_regnamespace('paramount_sync') is not null then
     raise exception 'Schema already exists: inspect migration state; do not overwrite';
   end if;
+  if to_regclass('auth.users') is null or to_regprocedure('auth.uid()') is null
+    or not exists(select 1 from pg_roles where rolname='anon')
+    or not exists(select 1 from pg_roles where rolname='authenticated') then
+    raise exception 'Required Supabase auth objects/roles are missing; inspect preflight';
+  end if;
+  if exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname in ('paramount_sync_list','paramount_sync_write')) then
+    raise exception 'Sync RPC name already exists: inspect definitions; do not overwrite';
+  end if;
 end $$;
 create schema paramount_sync;
 revoke all on schema paramount_sync from public, anon, authenticated;
@@ -163,3 +172,4 @@ revoke all on function public.paramount_sync_write(uuid,uuid,text,uuid,jsonb,big
 grant execute on function public.paramount_sync_list(uuid) to authenticated;
 grant execute on function public.paramount_sync_write(uuid,uuid,text,uuid,jsonb,bigint,uuid) to authenticated;
 commit;
+

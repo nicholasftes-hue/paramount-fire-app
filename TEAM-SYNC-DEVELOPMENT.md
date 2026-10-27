@@ -1,5 +1,66 @@
 # Isolated three-staff synchronisation
 
+## Continuation: 27 October 2026 safety review
+
+Source branch recovered through GitHub at
+`6b8bbd97d38e4dc3a1d8b9e586cc8df972a485e5`. Both this document and
+`sql/team-sync-isolated.sql` exist at that head; history recovery was unnecessary.
+Separate continuation branch: `paramount-team-sync-safety-review`.
+
+The owner identifies the isolated project as **Paramount Fire Test** and reports
+database `postgres`, PostgreSQL **17.11**, and no `paramount_sync` schema.
+This is owner-supplied evidence, not a full catalog inspection or permission to
+execute SQL. No Supabase SQL or settings changes have been made.
+
+Next review artifact: [read-only preflight](sql/team-sync-preflight.sql).
+After explicit approval, run it only in the independently confirmed test project.
+Review its object definitions, roles, grants, policies and function ownership
+before approving the migration. Database name/version do not identify a project.
+Keep output private; policy/function definitions may include internal details.
+The migration now rejects missing auth prerequisites and any existing public
+sync RPC name, including overloads, before creating its schema. It remains a
+fresh-schema test migration, not an upgrade/import or production migration.
+Definer functions require the owner to bypass forced RLS (normally Supabase
+postgres); do not weaken RLS or grant direct client access to work around errors.
+
+### Requirement coverage and outstanding development
+
+| Requirement | Current state |
+| --- | --- |
+| Owner, Mark, Mark's wife | Three numbered membership slots; actual identities are not provisioned. Use fictional test identities first. |
+| Shared properties and records | Properties plus service, PAT and lighting records implemented in isolated prototype. |
+| Certificates | Drafts generated from shared engineering records; issued certificates and shared binary attachments are not implemented. |
+| Jobs | Not synced. Existing app has visit/callout and legacy jobs; agree the job model before extending schema, validators and conflict tests together. |
+| Phone/laptop | Desktop loopback prototype; phone/LAN hosting deliberately blocked. Physical phone setup and browser acceptance remain pending. |
+| Admin/restricted permissions | Not implemented. All three active staff can edit all supported records; membership is owner-managed SQL only. Future roles must be enforced in server RPCs with denial tests, not just hidden controls. |
+| Authentication/security | Independent Supabase Auth, deny-by-default forced RLS and checked RPCs implemented; hosted acceptance still not run. |
+| Existing data | No automatic imports, edits to legacy schemas or deployment. Existing data remains in its original stores. |
+
+No further scope choices are needed to review the supplied test migration.
+Before implementing jobs, define whether a job means visit/callout, legacy job,
+or a new shared work order. Before role development, agree who administers users
+and whether restricted staff can view all properties or only assigned jobs.
+These are design decisions; do not infer them from staff names.
+
+### Evidence and owner action
+
+This session: 26 targeted Node tests passed. Browser test attempted but blocked
+by sandbox `listen EPERM` on 127.0.0.1. PostgreSQL/psql are unavailable, so the
+expanded database regression (existing RPC collision survives rollback) has not
+run locally. Python compilation passed; it is not SQL execution validation.
+Existing CI uses PostgreSQL 16; acceptance must also cover the reported PG17.
+The local Git repository is a reconstructed text snapshot, not a full clone:
+the proxy failed and connector binary downloads were unavailable. Remote
+continuation preserves the original Git tree and unchanged binary assets.
+
+Owner actions, in order:
+1. Supply the test project's reference (not secrets) and confirm it is isolated
+   from production/customer data; approve execution of the read-only preflight.
+2. Review that output before separately approving the test migration, fictional
+   account creation and membership setup. Existing approval is not implied.
+3. Complete hosted acceptance and decide jobs, permission rules and device/cache
+   retention before real staff/customer use. No production rollout is proposed.
+
 Continuation of draft PR #2 on `paramount-main-app-development`, based on
 `411dd6443b1d70de487fe8ef499f536e7561f54d`. No merge or deployment is requested.
 
@@ -144,3 +205,4 @@ pagination/realtime delivery and cross-team transfers are not implemented. The
 current pull RPC returns a complete workspace and is intended for bounded test
 datasets. Test source files must be locally available to reopen offline; they are
 not added to the production service worker cache.
+

@@ -6,6 +6,14 @@ source `a4f7b27635dc404f2e6fe878eb3a990dca476846`. Read
 
 ## Status and boundaries
 
+Update from owner, 27 October 2026: the isolated project is named **Paramount
+Fire Test**; its reported read-only check shows database postgres, PostgreSQL
+17.11 and no paramount_sync schema. The earlier unidentified-project statement
+below is historical. Its project reference and full catalog remain unverified.
+Do not create another project. Obtain explicit approval for
+`sql/team-sync-preflight.sql`, review its results, then request separate approval
+for the migration and provisioning. The checklist below is not authorisation.
+
 **Hosted acceptance is NOT RUN.** No disposable project was identified in the
 reviewed setup notes. The current cloud environment reports no secrets, runtime
 variables or outbound identities, and no Supabase connector is available.
@@ -174,3 +182,4 @@ creation, migration application, account creation, membership, hosted test data
 and cleanup were **not performed**. Physical-device/Safari acceptance and owner
 retention/backup decisions remain open. No production access, merge or deployment
 occurred. This checklist is preparation, not approval for real customer use.
+
