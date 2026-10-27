@@ -20,7 +20,7 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
   res.setHeader('Cache-Control','no-store');
   let body=fs.readFileSync(file);
-  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-main-app-v6','paramount-shell-academy-test-old'));
+  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-main-app-v7','paramount-shell-academy-test-old'));
   res.end(body);
 });
 
@@ -112,9 +112,9 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     await check('Academy and return button preserve property draft and stored records',async()=>{
       assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('paramount-demo-v1'))),seed);
       await page.locator('.home-management [data-tab="Properties"]').click();
-      await page.locator('form[data-type="properties"] input[name="name"]').fill('Unsaved property draft');
+      await page.locator('#main-property-form input[name="name"]').fill('Unsaved property draft');
       await lesson(page,'fire-basics');await page.locator('[data-academy-return]').click();
-      assert.equal(await page.locator('form[data-type="properties"] input[name="name"]').inputValue(),'Unsaved property draft');
+      assert.equal(await page.locator('#main-property-form input[name="name"]').inputValue(),'Unsaved property draft');
       assert.equal(await page.locator('main').evaluate(el=>el===document.activeElement),true);
       assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('paramount-demo-v1'))),seed);
     });
@@ -205,7 +205,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
           const p=await ctx.newPage();await p.goto(base+entry);
           await p.waitForFunction(()=>/could not load|failed to load/i.test(document.getElementById('academy-status')?.textContent||''));
           if(entry!=='academy-test.html'){
-            assert(await p.locator('.home-hero').isVisible());await p.locator('.home-management [data-tab="Properties"]').click();assert(await p.locator('form[data-type="properties"]').isVisible());
+            assert(await p.locator('.home-hero').isVisible());await p.locator('.home-management [data-tab="Properties"]').click();assert(await p.locator('#main-property-form').isVisible());
           }
           await ctx.unroute('**/academy.js?*');await p.reload();await p.locator('#academy[data-academy-ready="true"]').waitFor();
           await p.locator('[data-academy-subject="fire"]').click();assert(await p.locator('#academy-content h3').isVisible());
@@ -223,7 +223,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         p.once('dialog',dialog=>dialog.dismiss());await p.locator('#app-update button').click();
         assert.equal(await p.locator('input[name="name"]').inputValue(),'Keep this draft');
         p.once('dialog',dialog=>dialog.accept());await p.locator('#app-update button').click();
-        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-main-app-v6')&&!keys.includes('paramount-shell-academy-test-old')});
+        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-main-app-v7')&&!keys.includes('paramount-shell-academy-test-old')});
         await p.locator('[data-academy-subject="fire"]').waitFor();
       }finally{oldWorker=false;await ctx.close()}
     });
@@ -237,4 +237,5 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     if(context)await context.close();if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));
   }
 })();
+
 
