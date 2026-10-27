@@ -8,7 +8,7 @@
   const extra = ['PAT Testing','Emergency Lighting','Extinguishers','Installation Forms','Invoices','Call-outs','Office','Property History','Drawing Studio','Equipment Library','Record Backup'];
   extra.forEach(s=>{if(!sections.includes(s))sections.push(s)});
   let activeScope = '', state, editing = null, speech = null, speechTarget = null;
-  let draft = {}, storageError = '';
+  let draft = {}, storageError = '', propertyEditing = null;
   const scope = () => cloudSession?.user?.id || 'device-guest';
   const storageKey = () => 'paramount-main-app-v1:' + scope();
   const empty = () => ({version:VERSION,records:[],drafts:{}});
@@ -56,7 +56,7 @@
     const site = kind==='enquiry' ? input('Customer name','customer')+input('Email / phone','contact') : prop();
     const common=site+input(kind==='visit'?'Visit date':'Record date','date','date',true,today());
     switch(kind) {
-      case 'service': return common+input('Engineer','engineer')+input('System / panel make, model and category','system')+input('Service scope / agreed standard and edition','standard')+area('Devices / zones tested and actual results (one per line)','tests',true)+select('Battery inspection','battery',['Satisfactory','Unsatisfactory','Not inspected','Not applicable'])+area('Measured values, instruments and calibration reference','measurements',true)+area('Defects / limitations / inaccessible areas','defects',true)+area('Actions and advice to responsible person','actions',true)+input('Next agreed service date','next','date',false)+input('Responsible person / handover recipient','recipient')+area('Engineer declaration / work completed within stated scope','declaration',true)+review();
+      case 'service': return common+input('Engineer','engineer')+input('System / panel make, model and category','system')+input('Service scope / agreed standard and edition','standard')+area('Devices / zones tested and actual results (one per line)','tests',true)+select('Battery inspection','battery',['Satisfactory','Unsatisfactory','Not inspected','Not applicable'])+input('Battery voltage measured (V, optional)','batteryVoltage','number',false)+input('Battery rated capacity (Ah, optional)','batteryAh','number',false)+area('Measured values, instruments and calibration reference','measurements',true)+area('Defects / limitations / inaccessible areas','defects',true)+area('Actions and advice to responsible person','actions',true)+input('Next agreed service date','next','date',false)+input('Responsible person / handover recipient','recipient')+area('Engineer declaration / work completed within stated scope','declaration',true)+review();
       case 'pat': return common+input('Engineer / tester','engineer')+input('Test instrument / serial number','instrument')+input('Calibration reference / due date','calibration')+input('Appliance ID / asset number','asset')+select('Appliance type','appliance',['Kettle','Toaster','Router','Oven','Hob','Cooker hood','Washing machine','Tumble dryer','Dishwasher','Fridge / freezer','Other'])+input('Room / location','location')+select('Equipment class','equipmentClass',['Class I','Class II','Class III','Not determined'])+area('Visual inspection observations','visual',true)+area('Electrical tests performed, actual readings, limits and method','tests',true)+select('Recorded outcome','outcome',['Pass within recorded test scope','Fail / unsafe — action required','Not tested / inaccessible'])+area('Defects, labels, isolation and actions / advice','defects',true)+input('Next agreed test date','next','date',false)+review();
       case 'lighting': return common+input('Engineer / tester','engineer')+input('System / fitting reference','system')+input('Location / circuit / asset IDs','location')+select('Test scope','testType',['Routine functional test','Duration test','Visual inspection','Other agreed scope'])+input('Duration observed (minutes)','duration','number',false)+area('Fittings tested, method and actual results','tests',true)+area('Defects, inaccessible fittings and limitations','defects',true)+area('Remedial action / responsible person notified','actions',true)+input('Next agreed test date','next','date',false)+review();
       case 'extinguisher': return common+input('Engineer','engineer')+input('Asset / serial number','asset')+input('Location','location')+input('Manufacturer / model','model')+input('Type and capacity','capacity')+input('Manufacture date / year','manufactured','text',false)+input('Last extended service / test date','lastTest','date',false)+select('Visit type','visitType',['Basic service','Extended service','Replacement','Inspection only'])+area('Checks performed and measured results','tests',true)+select('Recorded outcome','outcome',['Satisfactory within recorded scope','Defective / action required','Not serviced / inaccessible'])+area('Defects, limitations and action taken','defects',true)+input('Next agreed service date','next','date',false)+review();
@@ -115,6 +115,7 @@
       totals(v);if(v.due<v.date)throw Error('Due / validity date cannot precede the document date.');
       if(Number(v.vat)>0&&!v.vatNumber?.trim())throw Error('Enter the verified VAT registration before preparing a VAT draft.');
     }
+    if(kind==='service')for(const field of ['batteryVoltage','batteryAh'])if(v[field] && (!/^\d+(?:\.\d{1,3})?$/.test(v[field])||Number(v[field])>1000))throw Error('Battery readings must be between 0 and 1000, with at most three decimal places.');
     if(kind==='visit'&&(!/^\d+$/.test(v.minutes)||Number(v.minutes)<1||Number(v.minutes)>1440||!/^([01]\d|2[0-3]):[0-5]\d$/.test(v.time)))throw Error('Enter a valid time and duration from 1 to 1440 minutes.');
     if(kind==='visit'&&(Number(v.time.slice(0,2))*60+Number(v.time.slice(3))+Number(v.minutes)>1440))throw Error('Split overnight visits into separate dated visits.');
     if(kind==='drawing'){if(!rectangles(v.layout).length)throw Error('Enter a layout element.');rectangles(v.markers,true)}
@@ -133,20 +134,21 @@
     commit(s=>{
       const old=editing?s.records.find(r=>r.id===editing.id):null;
       if(editing&&(!old||old.revision!==editing.revision))throw Error('This record changed in another tab. Reload and review the latest record before editing.');
-      const candidate={id:old?.id||uid(),kind,values,revision:(old?.revision||0)+1,created:old?.created||now(),updated:now()};
+      const candidate={id:old?.id||uid(),kind,values:{...values},revision:(old?.revision||0)+1,created:old?.created||now(),updated:now()};
+      if(kind==='service')candidate.siteSnapshot=(old?.values.property===values.property?old.siteSnapshot:null)||siteDetails(property(values.property));
       if(['quote','invoice'].includes(kind)&&s.records.some(r=>r.id!==candidate.id&&r.kind===kind&&r.values.number?.trim().toLowerCase()===values.number?.trim().toLowerCase()))throw Error('That document number already exists in this workspace.');
       if(s.records.some(r=>overlaps(candidate,r)))throw Error('This engineer already has an overlapping active visit. Adjust the time or engineer.');
-      candidate.history=old?[...(old.history||[]),{revision:old.revision,values:old.values,updated:old.updated}]:[];
+      candidate.history=old?[...(old.history||[]),{revision:old.revision,values:old.values,updated:old.updated,...(old.siteSnapshot?{siteSnapshot:old.siteSnapshot}:{})}]:[];
       s.records=s.records.filter(r=>r.id!==candidate.id);s.records.push(candidate);delete s.drafts[kind];saved=candidate;
     });
     editing=null;draft={};return saved;
   }
   function recordCard(r) {
     const v=r.values;
-    return `<article class="main-record"><h3>${safe(names[r.kind])} · ${safe(v.number||v.asset||v.title||v.status||'Draft')}</h3><p>${safe(v.date)} · ${safe(propertyName(v.property)||v.site)}<br>${safe(v.engineer||v.customer||v.manufacturer||'')} · revision ${r.revision}</p>${v.next?`<p>Follow-up: ${safe(v.next)}</p>`:''}${['quote','invoice'].includes(r.kind)?`<p>${pounds(totals(v).total)} · DRAFT — not issued</p>`:''}<div class="main-actions"><button type="button" data-main-edit="${r.id}">Review / edit</button><button type="button" data-main-print="${r.id}">Preview / PDF draft</button>${r.kind==='quote'?`<button type="button" data-main-convert="${r.id}">Prepare invoice</button>`:''}${['service','pat','lighting','callout','installation','extinguisher'].includes(r.kind)?`<button type="button" data-main-job-quote="${r.id}">Prepare quotation</button>`:''}</div><details><summary>Record details and revision history</summary>${detail(r)}${(r.history||[]).map(h=>`<details><summary>Revision ${h.revision} · ${safe(h.updated)}</summary>${detail({...r,values:h.values,history:[]})}</details>`).join('')}</details></article>`;
+    return `<article class="main-record"><h3>${safe(names[r.kind])} · ${safe(v.number||v.asset||v.title||v.status||'Draft')}</h3><p>${safe(v.date)} · ${safe(propertyName(v.property)||v.site)}<br>${safe(v.engineer||v.customer||v.manufacturer||'')} · revision ${r.revision}</p>${v.next?`<p>Follow-up: ${safe(v.next)}</p>`:''}${['quote','invoice'].includes(r.kind)?`<p>${pounds(totals(v).total)} · DRAFT — not issued</p>`:''}<div class="main-actions"><button type="button" data-main-edit="${r.id}">Review / edit</button><button type="button" data-main-print="${r.id}">Preview / PDF draft</button>${r.kind==='service'?`<button type="button" data-main-pdf="${r.id}">Download service PDF draft</button>`:''}${r.kind==='quote'?`<button type="button" data-main-convert="${r.id}">Prepare invoice</button>`:''}${['service','pat','lighting','callout','installation','extinguisher'].includes(r.kind)?`<button type="button" data-main-job-quote="${r.id}">Prepare quotation</button>`:''}</div><details><summary>Record details and revision history</summary>${detail(r)}${(r.history||[]).map(h=>`<details><summary>Revision ${h.revision} · ${safe(h.updated)}</summary>${detail({...r,values:h.values,siteSnapshot:h.siteSnapshot,history:[]})}</details>`).join('')}</details></article>`;
   }
   function detail(r) {
-    let result=Object.entries(r.values).map(([key,value])=>`<p><b>${safe(key)}:</b> ${safe(value)}</p>`).join('');
+    let result=(r.siteSnapshot?'<h3>Site details recorded at first save</h3>'+Object.entries(r.siteSnapshot).map(([k,v])=>`<p><b>${safe(k)}:</b> ${safe(v)}</p>`).join(''):'')+Object.entries(r.values).map(([key,value])=>`<p><b>${safe(key)}:</b> ${safe(value)}</p>`).join('');
     if(['quote','invoice'].includes(r.kind)){const t=totals(r.values);result+=`<p>Subtotal ${pounds(t.subtotal)} · VAT ${pounds(t.tax)} · Total ${pounds(t.total)}</p>`}
     if(r.kind==='drawing')result+=drawing(r.values);
     if(r.kind==='equipment'&&new URL(r.values.url).protocol==='https:')result+=`<p><a href="${safe(r.values.url)}" target="_blank" rel="noopener noreferrer">Open recorded manufacturer guide</a></p>`;
@@ -160,13 +162,13 @@
       const v=r.values,t=totals(v);
       body=`<p><b>${safe(names[r.kind])} number:</b> ${safe(v.number)}<br><b>Date:</b> ${safe(v.date)}<br><b>${r.kind==='quote'?'Valid until':'Payment due'}:</b> ${safe(v.due)}</p><h3>Customer / billing address</h3><p>${safe(v.customer)}<br>${safe(v.address).replace(/\n/g,'<br>')}</p><p><b>Site:</b> ${safe(propertyName(v.property))}<br><b>Related job / quote:</b> ${safe(v.source||'—')}</p><table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${t.lines.map(l=>`<tr><td>${safe(l.description)}</td><td>${l.quantity}</td><td>${pounds(l.unit)}</td><td>${pounds(l.amount)}</td></tr>`).join('')}</tbody></table><p>Subtotal: ${pounds(t.subtotal)}<br>VAT (${safe(v.vat)}%): ${pounds(t.tax)}<br><b>Total: ${pounds(t.total)}</b><br>VAT registration: ${safe(v.vatNumber||'Not supplied / confirm applicability')}</p><h3>Terms / exclusions</h3><p>${safe(v.terms).replace(/\n/g,'<br>')}</p><p>Company address, registration and payment details must be verified before issue.</p>`;
     }
-    printDocument(names[r.kind]+' — DRAFT',`<p><b>DRAFT — NOT ISSUED. NOT A COMPLIANCE CERTIFICATE.</b></p><p>Reference ${safe(r.id)} · revision ${r.revision} · ${safe(propertyName(r.values.property))}</p>${body}<p>Prepared / reviewed by: ${safe(r.values.engineer||r.values.owner||'Office review recorded')}<br>No digital signature or statutory certification is conferred. Verify company details, scope, results and required approved certification before issue.</p>`);
+    printDocument(names[r.kind]+' — DRAFT',`<p><b>DRAFT — NOT ISSUED. NOT A COMPLIANCE CERTIFICATE.</b></p><p>Reference ${safe(r.id)} · revision ${r.revision} · ${safe(r.siteSnapshot?.name||propertyName(r.values.property))}</p>${body}<p>Prepared / reviewed by: ${safe(r.values.engineer||r.values.owner||'Office review recorded')}<br>No digital signature or statutory certification is conferred. Verify company details, scope, results and required approved certification before issue.</p>`);
   }
   function list(kind) {return state.records.filter(r=>!kind||r.kind===kind).sort((a,b)=>b.updated.localeCompare(a.updated))}
   function banner() {return `<div class="main-banner"><strong>Main-app development workspace</strong><p>Records and unfinished forms are saved on this device, separated by signed-in account. ${scope()==='device-guest'?'Guest workspace — shared on this device.':''} Existing prototype records remain in their original storage. Cloud records require the separately reviewed setup.</p><p>Drafts require review. This app does not control, silence, reset or isolate a fire alarm.</p><div class="main-actions"><button type="button" data-tab="Property History">Property history</button><button type="button" data-tab="Record Backup">Backup / cloud snapshots</button><a href="#academy">Training Academy</a></div><p id="main-status" class="main-status" role="status" aria-live="polite">${safe(storageError)}</p></div>`}
   function workspace(kind) {
     const stored=state.drafts[kind];if(stored){draft=stored.values;editing=stored.editing}else {draft={};editing=null}
-    return `${kind==='equipment'?'<p>SmartCell: add the exact model and verified official manual below. No manufacturer procedures have been invented or bundled. Links open only after your choice.</p>':''}<section class="panel"><h2>${editing?'Edit':'New'} ${safe(names[kind])} — draft</h2><form data-main-form="${kind}" data-main-scope="${safe(scope())}"><div class="main-grid">${buildFields(kind)}</div><div class="main-actions"><button type="submit">Review and save draft</button><button type="button" data-main-clear="${kind}">Start new / clear draft</button></div><p>Unfinished forms save locally as you type. Dictation uses your browser’s speech service and may send audio to its provider; review every word before saving.</p><p id="dictation-status" role="status"></p><button type="button" data-main-stop>Stop dictation</button></form></section><section class="panel"><h2>Saved ${safe(names[kind])} records (${list(kind).length})</h2>${list(kind).map(recordCard).join('')||'<p>No new records yet.</p>'}</section>`;
+    return `${kind==='service'?'<p>Saved services include a downloadable draft PDF. Non-ASCII characters appear as U+ codes in this basic export; use Preview / PDF draft for the original text. Issued certificates still require an approved template and signatures.</p>':''}${kind==='equipment'?'<p>SmartCell: add the exact model and verified official manual below. No manufacturer procedures have been invented or bundled. Links open only after your choice.</p>':''}<section class="panel"><h2>${editing?'Edit':'New'} ${safe(names[kind])} — draft</h2><form data-main-form="${kind}" data-main-scope="${safe(scope())}"><div class="main-grid">${buildFields(kind)}</div><div class="main-actions"><button type="submit">Review and save draft</button><button type="button" data-main-clear="${kind}">Start new / clear draft</button></div><p>Unfinished forms save locally as you type. Dictation uses your browser’s speech service and may send audio to its provider; review every word before saving.</p><p id="dictation-status" role="status"></p><button type="button" data-main-stop>Stop dictation</button></form></section><section class="panel"><h2>Saved ${safe(names[kind])} records (${list(kind).length})</h2>${list(kind).map(recordCard).join('')||'<p>No new records yet.</p>'}</section>`;
   }
   function restore() {
     const form=document.querySelector('form[data-main-form]');if(!form)return;
@@ -203,6 +205,72 @@
     return `<section class="panel"><h2>Office dashboard</h2><p>${list('enquiry').filter(r=>r.values.status!=='Closed').length} open enquiries · ${list('callout').filter(r=>r.values.status!=='Closed after verification').length} open call-outs / defects · ${list('quote').length} draft quotes · ${list('invoice').length} draft invoices</p><p>Follow-ups and engineer visits appear below. Public enquiry submission and automatic messages are not configured.</p><div class="main-actions"><button data-tab="Call-outs">Call-outs</button><button data-tab="Quotes">Quotes</button><button data-tab="Invoices">Invoices</button><button data-tab="Planner">Planner</button></div></section>`+scheduleSummary();
   }
   function backupPage(){return `<section class="panel"><h2>Record backup and cloud snapshots</h2><p>Export includes this account’s new records, revisions and unfinished forms. Existing device records have a separate backup. Neither export includes authentication tokens.</p><div class="main-actions"><button data-main-export>Download workspace JSON</button><button data-backup>Download existing device records</button><button data-main-raw>Download raw workspace (recovery)</button></div><label>Restore workspace JSON (merge only; conflicting records are rejected)<input type="file" id="main-import" accept="application/json,.json"></label><h3>Supabase snapshots — optional, manual</h3><p>Requires an owner-reviewed main_app_snapshots table and RLS policies. No setup runs automatically. Upload saves an immutable snapshot; it never replaces cloud properties or other snapshots. Automatic syncing and team sharing are not enabled.</p><div class="main-actions"><button data-main-upload>Upload reviewed workspace snapshot</button><button data-main-cloud-list>List my cloud snapshots</button></div><div id="main-cloud-list"></div></section>`}
+  // Local property directory uses the existing device database; no cloud writes.
+  const siteDetails = p => Object.fromEntries(['id','name','address','postcode','panel','contact','phone','email'].map(k=>[k,String(p?.[k]||'')]));
+  function propertyDirectory() {
+    propertyEditing=null;
+    return `<section class="panel"><h2>Property database — this device</h2><p>Shared on this device, including across sign-ins. Existing service records are retained. Cloud Properties remains a separate test area.</p><label>Search name, address, postcode or panel<input id="main-property-search" type="search"></label><div id="main-properties"></div></section><section class="panel"><h2 id="main-property-heading">Add property</h2><form id="main-property-form" data-scope="${safe(scope())}"><div class="main-grid">${input('Property name','name')}${input('Address','address','text',false)}${input('Postcode','postcode','text',false)}${input('Panel make / model','panel')}${input('Contact name','contact','text',false)}${input('Phone','phone','tel',false)}${input('Email','email','email',false)}${input('Last service date','last','date')}${input('Service interval (months, 1–60)','months','number',true,'6')}</div><div class="main-actions"><button type="submit">Save property</button><button type="reset">Start new property</button><button type="button" data-tab="Property History">Open property history</button></div></form></section>`;
+  }
+  function showProperties(query) {
+    const target=document.getElementById('main-properties');if(!target)return;
+    const q=query.trim().toLowerCase();
+    const rows=db.properties.filter(p=>['name','address','postcode','panel','contact'].some(k=>String(p[k]||'').toLowerCase().includes(q)));
+    target.innerHTML=`<p>${rows.length} of ${db.properties.length} properties</p>`+rows.map(p=>`<article class="main-record"><h3>${safe(p.name)}</h3><p>${safe(p.address||'')} ${safe(p.postcode||'')}<br>${safe(p.panel)}<br>Last service: ${safe(p.last)} · interval ${safe(p.months)} months</p><button type="button" data-main-property-edit="${safe(p.id)}">Edit property</button></article>`).join('');
+  }
+  function saveProperty(values,expected) {
+    for(const k of ['name','panel','last','months'])if(!String(values[k]||'').trim())throw Error('Complete '+k+' before saving the property.');
+    if(!validDate(values.last)||!/^\d+$/.test(values.months)||Number(values.months)<1||Number(values.months)>60)throw Error('Enter a real last service date and interval from 1 to 60 months.');
+    for(const v of Object.values(values))if(typeof v!=='string'||v.length>2000)throw Error('Property fields must be text of at most 2000 characters.');
+    const raw=localStorage.getItem(key);
+    const fresh=raw?JSON.parse(raw):JSON.parse(JSON.stringify(db));
+    if(!Array.isArray(fresh.properties))throw Error('Device database is unreadable; it has not been replaced.');
+    const old=expected?fresh.properties.find(p=>p.id===expected.id):null;
+    if(expected&&(!old||JSON.stringify(old)!==JSON.stringify(expected)))throw Error('Property changed in another tab. Reopen it before saving.');
+    const saved={...old,...values,id:old?.id||'P-'+uid()};
+    if(old)fresh.properties[fresh.properties.indexOf(old)]=saved;else fresh.properties.push(saved);
+    localStorage.setItem(key,JSON.stringify(fresh));db=fresh;return saved;
+  }
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-main-property-edit]');if(!b)return;
+    try{
+      const fresh=localStorage.getItem(key);if(fresh)db=JSON.parse(fresh);
+      const p=property(b.dataset.mainPropertyEdit);if(!p)throw Error('Property no longer exists.');
+      propertyEditing=JSON.parse(JSON.stringify(p));
+      const form=document.getElementById('main-property-form');
+      for(const el of form.elements)if(el.name)el.value=p[el.name]??'';
+      document.getElementById('main-property-heading').textContent='Edit property: '+p.name;
+      form.scrollIntoView({block:'start'});
+    }catch(error){message(error.message)}
+  });
+  document.addEventListener('reset',e=>{if(e.target.id==='main-property-form'){propertyEditing=null;document.getElementById('main-property-heading').textContent='Add property'}});
+  document.addEventListener('submit',e=>{
+    if(e.target.id!=='main-property-form')return;e.preventDefault();
+    try{if(e.target.dataset.scope!==scope())throw Error('Account changed. Reopen Properties before saving.');const p=saveProperty(fields(e.target),propertyEditing);render();message('Property saved on this device: '+p.name)}catch(error){message('Property not saved: '+error.message)}
+  });
+  // Dependency-free PDF with explicit page boundaries and byte-correct xref offsets.
+  // Unsupported glyphs are shown as U+XXXX, never silently dropped; preview retains Unicode.
+  function servicePdf(r) {
+    if(r.kind!=='service'||r.values.reviewed!=='yes')throw Error('Select a reviewed service record.');
+    const site=r.siteSnapshot||siteDetails(property(r.values.property));
+    const lines=['PARAMOUNT FIRE PROTECTION','Fire alarm service record - DRAFT','Reference: '+r.id,'Revision: '+r.revision,'Saved: '+r.updated,...(!r.siteSnapshot?['Legacy record: current site details; no original site snapshot.']:['Site details recorded at first save:']),...Object.entries(site).map(([k,v])=>k+': '+v),'',...Object.entries(r.values).filter(([k])=>k!=='reviewed').map(([k,v])=>k+': '+v),'','Engineer review is recorded; no digital signature is conferred.','Verify the required approved certification and signatures before issue.'];
+    const ascii=s=>Array.from(String(s).replace(/\r\n?/g,'\n')).map(c=>{const n=c.codePointAt(0);return n===10||n>=32&&n<=126?c:'[U+'+n.toString(16).toUpperCase().padStart(4,'0')+']'}).join('');
+    const wrapped=lines.flatMap(line=>ascii(line).split('\n').flatMap(part=>{const out=[];while(part.length>88){let n=part.lastIndexOf(' ',88);if(n<1)n=88;out.push(part.slice(0,n));part=part.slice(n).trimStart()}return [...out,part]}));
+    const pages=[];for(let i=0;i<wrapped.length;i+=43)pages.push(wrapped.slice(i,i+43));
+    const objects=['','<< /Type /Catalog /Pages 2 0 R >>','','<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>'];
+    const kids=[];
+    pages.forEach((page,i)=>{
+      const pageId=objects.length,streamId=pageId+1;kids.push(pageId+' 0 R');
+      const escape=s=>s.replace(/([\\()])/g,'\\$1');
+      const text=['DRAFT - NOT ISSUED - NOT A COMPLIANCE CERTIFICATE','Page '+(i+1)+' of '+pages.length,'',...page];
+      const stream='BT /F1 10 Tf 13 TL 36 805 Td '+text.map((l,j)=>(j?'T* ':'')+'('+escape(l)+') Tj').join('\n')+'\nET';
+      objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents '+streamId+' 0 R >>','<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream');
+    });
+    objects[2]='<< /Type /Pages /Count '+pages.length+' /Kids ['+kids.join(' ')+'] >>';
+    let pdf='%PDF-1.4\n',offsets=[0];
+    for(let i=1;i<objects.length;i++){offsets.push(pdf.length);pdf+=i+' 0 obj\n'+objects[i]+'\nendobj\n'}
+    const start=pdf.length;pdf+='xref\n0 '+objects.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+objects.length+' /Root 1 0 R >>\nstartxref\n'+start+'\n%%EOF\n';
+    return pdf;
+  }
   const originalRender=render;
   render=function(){
     remember();load();stopSpeech();originalRender();
@@ -212,7 +280,7 @@
     }
     if(kind){const legacy=['Service Records','Quotes','Planner'].includes(tab)?`<details class="panel"><summary>Preserved prototype ${safe(tab)} — existing records</summary><div id="main-legacy"></div></details>`:'';const old=view.innerHTML;view.innerHTML=`<div class="main-app">${banner()}${tab==='Office'?officeSummary():''}${tab==='Planner'?scheduleSummary():''}${workspace(kind)}${legacy}</div>`;const el=document.getElementById('main-legacy');if(el){el.innerHTML=old;el.querySelectorAll('form').forEach(f=>f.remove());if(tab==='Planner'){el.querySelectorAll('[data-plan-filter]').forEach(b=>b.remove())}}restore();}
     else if(tab==='Property History'||tab==='Record Backup')view.innerHTML=`<div class="main-app">${banner()}${tab==='Property History'?historyPage():backupPage()}</div>`;
-    else if(tab==='Properties')view.insertAdjacentHTML('beforeend','<div class="main-actions"><button data-tab="Property History">Open property history</button></div>');
+    else if(tab==='Properties'){view.innerHTML=`<div class="main-app">${banner()}${propertyDirectory()}</div>`;showProperties('');}
   };
   function download(name,value,type='application/json') {const url=URL.createObjectURL(new Blob([value],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
   function exportData(){return {application:'paramount-main-app',version:VERSION,scope:scope(),exported:now(),records:state.records,drafts:state.drafts}}
@@ -242,16 +310,17 @@
     speech.onresult=e=>{if(!speechTarget?.isConnected)return;const text=Array.from(e.results).map(r=>r[0].transcript).join(' ');speechTarget.value+=(speechTarget.value?'\n':'')+text;const reviewed=form.elements.namedItem('reviewed');if(reviewed)reviewed.checked=false;remember();document.getElementById('dictation-status').textContent='Draft transcript added. Engineer review is required.'};
     speech.onerror=()=>{const el=document.getElementById('dictation-status');if(el)el.textContent='Dictation stopped or unavailable. Type or use your keyboard microphone.'};speech.start();document.getElementById('dictation-status').textContent='Listening… select Stop dictation when finished.';
   }
-  document.addEventListener('input',e=>{const form=e.target.closest('form[data-main-form]');if(!form)return;if(form.dataset.mainScope!==scope()){message('Account changed. Reload before editing.');return}load();if(e.target.name!=='reviewed')form.elements.namedItem('reviewed').checked=false;remember();updatePreview(form)});
+  document.addEventListener('input',e=>{if(e.target.id==='main-property-search')showProperties(e.target.value);const form=e.target.closest('form[data-main-form]');if(!form)return;if(form.dataset.mainScope!==scope()){message('Account changed. Reload before editing.');return}load();if(e.target.name!=='reviewed')form.elements.namedItem('reviewed').checked=false;remember();updatePreview(form)});
   document.addEventListener('submit',e=>{const form=e.target.closest('form[data-main-form]');if(!form)return;e.preventDefault();stopSpeech();if(form.dataset.mainScope!==scope()){message('Account changed. Reload this form before saving.');return}load();try{const r=saveRecord(form.dataset.mainForm,fields(form));form.removeAttribute('data-main-form');render();message('Draft saved on this device. Review / PDF preview is available below. Reference: '+r.id)}catch(error){message('Not saved: '+error.message)}});
   document.addEventListener('change',async e=>{
     if(e.target.id==='main-history-property')showHistory(e.target.value);
     if(e.target.id==='main-import'&&e.target.files?.[0])try{if(e.target.files[0].size>10000000)throw Error('Backup exceeds 10 MB.');const data=JSON.parse(await e.target.files[0].text());if(!confirm('Merge this backup into the current workspace? Existing records and forms will not be overwritten.'))return;merge(data);render();message('Backup merged. Existing drafts were retained.')}catch(error){message('Import rejected: '+error.message)}
   });
   document.addEventListener('click',async e=>{
-    const b=e.target.closest('[data-main-edit],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
+    const b=e.target.closest('[data-main-edit],[data-main-pdf],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
     load();try{
       if(b.dataset.mainEdit){const r=record(b.dataset.mainEdit);if(!r)return;remember();const existing=state.drafts[r.kind];if(existing&&Object.values(existing.values).some(Boolean)&&!confirm('Replace the unfinished form with this saved record?'))return;commit(s=>s.drafts[r.kind]={values:r.values,editing:{id:r.id,revision:r.revision},updated:now()});document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');tab=Object.keys(pages).find(k=>pages[k]===r.kind);render();document.querySelector('form[data-main-form]')?.scrollIntoView({block:'start'});}
+      else if(b.dataset.mainPdf){const r=record(b.dataset.mainPdf);if(!r||r.kind!=='service')throw Error('Select a saved service record.');download('paramount-service-'+r.id+'-r'+r.revision+'-DRAFT.pdf',servicePdf(r),'application/pdf')}
       else if(b.dataset.mainPrint)preview(b.dataset.mainPrint);
       else if(b.dataset.mainClear){if(!confirm('Clear this unfinished form? Saved records are kept.'))return;commit(s=>delete s.drafts[b.dataset.mainClear]);document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');render()}
       else if(b.dataset.mainConvert){const r=record(b.dataset.mainConvert);if(!r)return;remember();if(state.drafts.invoice&&!confirm('Replace the unfinished invoice form? Saved invoices are kept.'))return;commit(s=>s.drafts.invoice={values:{...r.values,number:'',source:r.values.number,date:today(),due:'',reviewed:''},editing:null,updated:now()});document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');tab='Invoices';render()}
@@ -280,6 +349,7 @@
   addEventListener('beforeunload',()=>{remember();stopSpeech()});
   addEventListener('storage',e=>{if(e.key===storageKey())message('Workspace changed in another tab. Reload before editing saved records; stale revisions cannot overwrite newer records.')});
   // Read-only test interface: no credentials or automatic cloud calls.
-  window.ParamountMainApp={totals,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
+  window.ParamountMainApp={servicePdf,totals,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
   render();
 })();
+

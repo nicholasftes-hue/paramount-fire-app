@@ -5,13 +5,13 @@ const vm=require('node:vm');
 const {webcrypto}=require('node:crypto');
 function harness(storage=new Map()){
   const context={console,crypto:webcrypto,URL,Date,JSON,Number,Set,Map,Object,Array,String,Error,FormData,Blob,
-    sections:[],tab:'test',db:{properties:[{id:'P1',name:'Fictional site'}]},cloudSession:null,
+    key:'paramount-demo-v1',sections:[],tab:'test',db:{properties:[{id:'P1',name:'Fictional site'}]},cloudSession:null,
     localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},
     document:{querySelector:()=>null,getElementById:()=>null,addEventListener:()=>{}},window:{},
     render:()=>{},esc:x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
     addEventListener:()=>{},setTimeout:()=>{},confirm:()=>true};
   vm.createContext(context);
-  let source=fs.readFileSync('main-app.js','utf8').replace('window.ParamountMainApp={totals,','window.ParamountMainApp={setEditing:v=>editing=v,saveRecord,merge,read,load,exportData,totals,');
+  let source=fs.readFileSync('main-app.js','utf8').replace('window.ParamountMainApp={servicePdf,totals,','window.ParamountMainApp={setEditing:v=>editing=v,saveProperty,siteDetails,saveRecord,merge,read,load,exportData,servicePdf,totals,');
   vm.runInContext(source,context);
   return {api:context.window.ParamountMainApp,context,storage};
 }
@@ -71,4 +71,45 @@ test('editing preserves prior revisions and rejects stale saves from another tab
  assert.equal(updated.revision,2);assert.equal(updated.history[0].values.terms,'Draft only');
  assert.throws(()=>a.api.saveRecord('quote',{...commercial,terms:'Stale update'}),/changed in another tab/);
  assert.equal(a.api.read().records[0].values.terms,'Reviewed revision two');
+});
+
+const service={property:'P1',date:'2026-10-27',engineer:'Fictional engineer',system:'Test panel',standard:'TEST scope',tests:'Test device: fictional only',battery:'Not inspected',measurements:'No measurement - fixture',defects:'Test limitation',actions:'Test advice',recipient:'Fictional recipient',declaration:'Test draft only',reviewed:'yes'};
+test('property edits preserve unrelated data, reopen, validate and reject stale writes',()=>{
+ const {api,storage}=harness();
+ storage.set('paramount-demo-v1',JSON.stringify({properties:[{id:'P1',name:'Original',panel:'Test',last:'2026-10-01',months:'6',schedule:{fire:{due:'2027-04-01'}}}],services:[{notes:'preserve'}],settings:{vat:'20'}}));
+ const original=JSON.parse(storage.get('paramount-demo-v1')).properties[0];
+ const values={name:'Renamed',panel:'Test',last:'2026-10-02',months:'12',address:'Fictional address'};
+ api.saveProperty(values,original);
+ const reopened=JSON.parse(storage.get('paramount-demo-v1'));
+ assert.equal(reopened.properties[0].id,'P1');assert.equal(reopened.properties[0].schedule.fire.due,'2027-04-01');assert.equal(reopened.services[0].notes,'preserve');assert.equal(reopened.settings.vat,'20');
+ const before=storage.get('paramount-demo-v1');
+ assert.throws(()=>api.saveProperty(values,original),/changed in another tab/);
+ for(const v of [{last:'2026-02-30'},{months:'0'},{months:'1.5'}])assert.throws(()=>api.saveProperty({...values,...v},null));
+ assert.equal(storage.get('paramount-demo-v1'),before);
+ const created=api.saveProperty(values,null);assert.notEqual(created.id,'P1');assert.equal(JSON.parse(storage.get('paramount-demo-v1')).properties.length,2);
+ storage.set('paramount-demo-v1','{broken');assert.throws(()=>api.saveProperty(values,null));assert.equal(storage.get('paramount-demo-v1'),'{broken');
+});
+test('service records reopen with frozen site details, battery values and immutable revisions',()=>{
+ const {api,context,storage}=harness();
+ context.db.properties[0].address='Original site address';
+ const first=api.saveRecord('service',{...service,batteryVoltage:'24.125',batteryAh:'7'});
+ context.db.properties[0].name='Changed property';context.db.properties[0].address='Changed address';
+ const reopened=harness(storage).api.read().records[0];assert.equal(reopened.siteSnapshot.name,'Fictional site');assert.equal(reopened.siteSnapshot.address,'Original site address');
+ api.setEditing({id:first.id,revision:1});const second=api.saveRecord('service',{...service,batteryVoltage:'25',batteryAh:'7'});
+ assert.equal(second.history[0].values.batteryVoltage,'24.125');assert.equal(second.siteSnapshot.name,'Fictional site');
+ for(const value of ['-1','NaN','1e2','1001','1.2345'])assert.throws(()=>api.validate('service',{...service,batteryVoltage:value}));
+ api.validate('service',service);
+});
+test('downloadable service PDF paginates all results and has valid byte offsets',()=>{
+ const {api}=harness();
+ const saved=api.saveRecord('service',{...service,tests:Array.from({length:100},(_,i)=>'Device '+i+' (test) \\ fixture').join('\n'),defects:'FINAL-DEFECT-MARKER <script> £ Ω'});
+ const pdf=api.servicePdf(saved);
+ assert.match(pdf,/^%PDF-1.4/);assert.match(pdf,/FINAL-DEFECT-MARKER/);assert.match(pdf,/Device 99/);assert.match(pdf,/\[U\+03A9\]/);assert.match(pdf,/DRAFT - NOT ISSUED - NOT A COMPLIANCE CERTIFICATE/);
+ const count=Number(pdf.match(/\/Type \/Pages \/Count (\d+)/)[1]);assert(count>=3);
+ const xref=Number(pdf.match(/startxref\n(\d+)/)[1]);assert.equal(pdf.slice(xref,xref+4),'xref');
+ const offsets=pdf.slice(xref).split('\n').filter(l=>/^\d{10} 00000 n/.test(l));
+ offsets.forEach((l,i)=>assert(pdf.slice(Number(l.slice(0,10))).startsWith((i+1)+' 0 obj')));
+ assert.equal(Buffer.byteLength(pdf),pdf.length);
+ fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/service-draft.pdf',pdf);
+ const legacy={...saved};delete legacy.siteSnapshot;assert.match(api.servicePdf(legacy),/no original site snapshot/);
 });

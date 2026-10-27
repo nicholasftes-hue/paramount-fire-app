@@ -42,11 +42,29 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  await check('unfinished forms survive navigation and reload with review reset on edits',async()=>{
  await tab('Service Records');await p.locator('form [name=engineer]').fill('Unfinished engineer');await tab('Invoices');await tab('Service Records');assert.equal(await p.locator('form [name=engineer]').inputValue(),'Unfinished engineer');await p.reload();await p.waitForFunction(()=>!!window.ParamountMainApp);await tab('Service Records');assert.equal(await p.locator('form [name=engineer]').inputValue(),'Unfinished engineer');assert.equal(await p.locator('form [name=reviewed]').isChecked(),false);
  });
+ await check('property database saves, reopens, searches and preserves service site snapshots',async()=>{
+ await tab('Properties');await p.locator('[data-main-property-edit="P001"]').click();
+ await p.locator('#main-property-form [name=name]').fill('Renamed fictional property');
+ await p.locator('#main-property-form [name=address]').fill('Fictional new address');
+ await p.locator('#main-property-form button[type=submit]').click();
+ assert.match(await p.locator('#main-status').innerText(),/Property saved/);
+ await p.reload();await p.waitForFunction(()=>!!window.ParamountMainApp);await tab('Properties');
+ await p.locator('#main-property-search').fill('Renamed fictional');assert.equal(await p.locator('#main-properties .main-record').count(),1);
+ await p.locator('[data-main-property-edit="P001"]').click();assert.equal(await p.locator('#main-property-form [name=address]').inputValue(),'Fictional new address');
+ await tab('Service Records');await p.locator('[data-main-edit]').click();
+ await fill({batteryVoltage:'24.125',batteryAh:'7'});await p.locator('form[data-main-form] button[type=submit]').click();
+ await p.waitForFunction(()=>document.getElementById('main-status')?.textContent.startsWith('Draft saved'));
+ await p.reload();await p.waitForFunction(()=>!!window.ParamountMainApp);await tab('Service Records');
+ await p.locator('[data-main-edit]').click();assert.equal(await p.locator('form [name=batteryVoltage]').inputValue(),'24.125');
+ const pending=p.waitForEvent('download');await p.locator('[data-main-pdf]').click();const file=await pending;
+ const pdf=fs.readFileSync(await file.path(),'utf8');assert.match(pdf,/^%PDF-1.4/);assert.match(pdf,/Demo HMO/);assert(!pdf.includes('Renamed fictional property'));assert.match(pdf,/24.125/);assert.match(pdf,/NOT A COMPLIANCE CERTIFICATE/);
+ fs.mkdirSync('test-results',{recursive:true});fs.copyFileSync(await file.path(),'test-results/browser-service-draft.pdf');
+ });
  await check('account changes cannot save a stale account form and have isolated records',async()=>{
  await p.evaluate(()=>{cloudSession={user:{id:'fictional-account-b'}}});await p.locator('form[data-main-form]').evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.match(await p.locator('#main-status').innerText(),/Account changed/);await tab('Invoices');assert.equal(await p.locator('.main-record').count(),0);await p.evaluate(()=>{cloudSession=null});await tab('Invoices');assert.equal(await p.locator('.main-record').count(),1);
  });
  await check('320px, 360px, 412px and landscape forms fit the screen',async()=>{
- for(const viewport of [{width:320,height:568},{width:360,height:800},{width:412,height:915},{width:800,height:360}]){await p.setViewportSize(viewport);for(const name of ['Service Records','Extinguishers','Quotes','Invoices','Planner','Drawing Studio']){await tab(name);assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${viewport.width}`)}fs.mkdirSync('test-results',{recursive:true});await p.screenshot({path:`test-results/main-app-${viewport.width}.png`,fullPage:true})}
+ for(const viewport of [{width:320,height:568},{width:360,height:800},{width:412,height:915},{width:800,height:360}]){await p.setViewportSize(viewport);for(const name of ['Properties','Service Records','Extinguishers','Quotes','Invoices','Planner','Drawing Studio']){await tab(name);assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${viewport.width}`)}await tab('Service Records');const pending=p.waitForEvent('download');await p.locator('[data-main-pdf]').click();const pdfFile=await pending;assert.match(fs.readFileSync(await pdfFile.path(),'utf8'),/^%PDF-1.4/);fs.mkdirSync('test-results',{recursive:true});await p.screenshot({path:`test-results/main-app-${viewport.width}.png`,fullPage:true})}
  });
  await check('workspace backup downloads without authentication tokens',async()=>{
  await tab('Record Backup');const pending=p.waitForEvent('download');await p.locator('[data-main-export]').click();const file=await pending;const data=JSON.parse(fs.readFileSync(await file.path(),'utf8'));assert.equal(data.records.length,10);assert(!JSON.stringify(data).includes('access_token'));assert.equal(data.scope,'device-guest');
@@ -55,3 +73,4 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  }catch(error){results.push({name:'main-app browser run',status:'failed',error:error.stack});console.error(error);process.exitCode=1}
  finally{fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/main-browser-results.json',JSON.stringify({results,errors,external},null,2));if(context)await context.close();if(browser)await browser.close();await new Promise(resolve=>server.close(resolve))}
 })();
+
