@@ -204,11 +204,8 @@
     workspace.focus();
     workspace.scrollIntoView({block:'start'});
   });
-  function progressKey() {
-    let user;
-    try { user = typeof cloudSession !== 'undefined' && cloudSession?.user?.id; } catch { /* Host app may still be initialising. */ }
-    return 'paramount-academy-session-v1:' + (user || 'guest');
-  }
+  function progressKey() { return 'paramount-mark-full-20261027-academy'; }
+
   function progress() {
     try { const data = JSON.parse(sessionStorage.getItem(progressKey()) || '{}'); return data && typeof data === 'object' ? data : {}; } catch { return {}; }
   }
@@ -226,15 +223,15 @@
     currentSubject=id; currentLesson=null;
     lastSubject=id;
     const done=progress();
-    show(`<button type="button" data-academy-home>← All subjects</button><h3 tabindex="-1">${item.name}</h3>${notice}<p>Progress is for this browser tab/session only, separated by signed-in account where available. It is not synced to Supabase or an official staff competency record.</p>
-      <section class="academy-level"><h4>Beginner</h4>${item.lessons.length ? item.lessons.map(key=>`<button class="academy-lesson-link" type="button" data-academy-lesson="${key}">${lessons[key].title} · ${lessons[key].minutes} min${done[key] ? ' · Knowledge check passed' : ''}</button>`).join('') : `<p class="academy-planned">Planned — ${item.next}. Lessons are not available yet.</p>`}</section>
-      <section class="academy-level"><h4>Intermediate</h4><p class="academy-planned">Planned — supervised application and structured troubleshooting. No lessons published yet.</p></section><section class="academy-level"><h4>Advanced</h4><p class="academy-planned">Planned — complex diagnosis and manufacturer-specific material following technical review. No lessons published yet.</p></section>`);
+    show(`<button type="button" data-academy-home>← All subjects</button><h3 tabindex="-1">${item.name}</h3>${notice}<p>Progress is for this browser tab/session only, for this isolated showcase. It is not an official staff competency record.</p>
+      <section class="academy-level"><h4>Beginner</h4>${item.lessons.length ? item.lessons.map(key=>`<button class="academy-lesson-link" type="button" data-academy-lesson="${key}">${lessons[key].title} · ${lessons[key].minutes} min${done[key] ? ' · Knowledge check passed' : ''}</button>`).join('') : `<p class="academy-planned">Coming Soon — ${item.next}. Lessons are not available yet.</p>`}</section>
+      <section class="academy-level"><h4>Intermediate</h4><p class="academy-planned">Coming Soon — supervised application and structured troubleshooting. No lessons published yet.</p></section><section class="academy-level"><h4>Advanced</h4><p class="academy-planned">Coming Soon — complex diagnosis and manufacturer-specific material following technical review. No lessons published yet.</p></section>`);
   }
   function lesson(id) {
     const item=lessons[id]; if (!item) return;
     currentLesson=id; currentSubject=item.subject;
     const list=subjects[item.subject].lessons, index=list.indexOf(id);
-    show(`<button type="button" data-academy-back>← ${subjects[item.subject].name}</button><article><h3 tabindex="-1">${item.title}</h3><p>Beginner · about ${item.minutes} minutes · Content revision 1</p>${notice}${item.body}<h4>Reference starting points</h4><p>Use current official guidance and exact model manuals before practical work: ${item.subject==='fire' ? '<a href="https://c-tec.com/" target="_blank" rel="noopener noreferrer">C-TEC official product documentation</a> · <a href="https://www.gov.uk/workplace-fire-safety-your-responsibilities" target="_blank" rel="noopener noreferrer">GOV.UK workplace fire safety</a>' : '<a href="https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/cctv-and-video-surveillance/" target="_blank" rel="noopener noreferrer">ICO video surveillance guidance</a> · <a href="https://www.hikvision.com/uk/support/" target="_blank" rel="noopener noreferrer">Hikvision / HiLook support</a> · <a href="https://support.swann.com/" target="_blank" rel="noopener noreferrer">Swann support</a>'}. These links are reference entry points; no exact model manual has been verified for this release.</p>
+    show(`<button type="button" data-academy-back>← ${subjects[item.subject].name}</button><article><h3 tabindex="-1">${item.title}</h3><p>Beginner · about ${item.minutes} minutes · Content revision 1</p>${notice}${item.body}<h4>Reference starting points</h4><p>Use current official guidance and exact model manuals before practical work: ${item.subject==='fire' ? 'Official reference (external access disabled) · Official reference (external access disabled)' : 'Official reference (external access disabled) · Official reference (external access disabled) · Official reference (external access disabled)'}. These links are reference entry points; no exact model manual has been verified for this release.</p>
       <form id="academy-quiz"><h4>Knowledge check</h4><p>Answer every question. All answers must be correct to record this knowledge check as passed. You can retry.</p>${item.questions.map((q,i)=>`<fieldset><legend>${i+1}. ${q.q}</legend>${q.options.map((option,j)=>`<label class="academy-option"><input type="radio" name="q${i}" value="${j}" required><span>${option}</span></label>`).join('')}<div data-academy-feedback="${i}"></div></fieldset>`).join('')}<button type="submit">Check answers</button><p id="academy-result" role="status" aria-live="polite"></p></form>
       <div class="academy-toolbar">${index>0 ? `<button type="button" data-academy-lesson="${list[index-1]}">← Previous lesson</button>` : ''}${index<list.length-1 ? `<button type="button" data-academy-lesson="${list[index+1]}">Next lesson →</button>` : '<button type="button" data-academy-back>Back to learning path</button>'}</div></article>`);
   }
@@ -277,4 +274,5 @@
     initialiseAcademy();
   }
 })();
+
 

@@ -11,3 +11,4 @@
 #academy .academy-feedback{padding:12px;background:#edf8ff;border:1px solid #b5d6e9;border-radius:8px}#academy h3:focus,#academy h4:focus{outline:none}
 @media(max-width:600px){#academy{margin:12px;padding:16px}#academy .academy-grid{grid-template-columns:1fr}#academy .academy-toolbar button{flex:1}#academy fieldset{padding:10px}}
 
+

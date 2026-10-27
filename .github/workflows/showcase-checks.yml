@@ -1,0 +1,31 @@
+name: Isolated full showcase verification
+on:
+  push:
+    branches: [mark-full-showcase-preparation-2026-10-27]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: node tests/showcase-static.cjs
+      - run: node tests/showcase-browser.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-showcase-verification
+          path: test-results/
+      - name: Package isolated static showcase
+        run: cd showcase && zip -r ../paramount-mark-full-showcase.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paramount-mark-full-showcase-upload-ready
+          path: paramount-mark-full-showcase.zip
