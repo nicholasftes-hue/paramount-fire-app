@@ -36,7 +36,7 @@ for kind in ('pat','lighting'):
 for width in (320,360,412,800):
     for kind in ('certificate','pat-register','lighting','lighting-register'):
         reader=PdfReader(Path('test-results') / f'{kind}-{width}.pdf',strict=True)
-        text='\n'.join(p.extract_text() for p in reader.pages)
+        text=' '.join('\n'.join(p.extract_text() for p in reader.pages).split())
         assert all('NOT A COMPLIANCE CERTIFICATE' in p.extract_text() for p in reader.pages)
         assert 'Zoë — Ω' in text and 'José' in text
         assert 'Customer signature (typed)' in text
