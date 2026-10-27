@@ -8,8 +8,11 @@
     const response=await fetch('./index-3.html',{cache:'no-store'});if(!response.ok)throw Error();
     let html=await response.text();
     html=html.replace(/<script\b[^>]*\bsrc=["'][^"']+["'][^>]*>\s*<\/script>/gi,'');
-    html=html.replace('</body>','<script src="./team-sync.js"><\/script><script src="./team-sync-ui.js"><\/script><script src="./pdf-font.js"><\/script><script src="./main-app.js"><\/script></body>');
     document.open();document.write(html);document.close();
-  }catch{document.getElementById('startup').textContent='Test workspace unavailable. Serve this checkout locally and retry.'}
+    // Explicit module order after document replacement, matching the normal loader.
+    for(const src of ['./team-sync.js','./team-sync-ui.js','./pdf-font.js','./main-app.js']){
+      await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.async=false;script.onload=resolve;script.onerror=reject;document.body.append(script)});
+    }
+  }catch{document.body.textContent='Test workspace unavailable. Serve this checkout locally and retry.'}
 })();
 </script></body></html>

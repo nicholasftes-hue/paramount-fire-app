@@ -69,7 +69,7 @@
   });
   document.addEventListener('click',async e=>{
     try{
-      if(e.target.id==='team-offline'){if(!settings)throw Error('Load test configuration first.');if(working)throw Error('Wait for sync to finish.');const id=localStorage.getItem('paramount-isolated-last:'+settings.url+':'+settings.workspace);if(!id)throw Error('No cached staff workspace. Sign in online first.');close();await open(id);status('Offline mode. Reauthenticate to sync; local access is not proof of current staff authorisation.');}
+      if(e.target.id==='team-offline'){if(!settings)throw Error('Load test configuration first.');if(working)throw Error('Wait for sync to finish.');const id=localStorage.getItem('paramount-isolated-last:'+settings.url+':'+settings.workspace);if(!id)throw Error('No cached staff workspace. Sign in online first.');close();await open(id);if(exclusive)status('Offline mode. Reauthenticate to sync; local access is not proof of current staff authorisation.');}
       if(e.target.id==='team-logout'){if(working)throw Error('Wait for sync to finish.');close();redraw()}
       if(e.target.id==='team-now')await sync();
       if(e.target.id==='team-export'){const raw=settings&&user?localStorage.getItem(key()):null;if(!raw)throw Error('No open workspace to export.');const a=document.createElement('a'),url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));a.href=url;a.download='paramount-isolated-sync-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}

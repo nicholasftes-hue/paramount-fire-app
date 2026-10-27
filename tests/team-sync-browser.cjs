@@ -26,7 +26,7 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
       }
       throw Error('Unexpected test endpoint '+url.pathname);
     });
-    const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+    const page=await context.newPage();page.on('pageerror',e=>{errors.push(e.message);console.error('TEST PAGE ERROR:',e.message)});page.on('dialog',d=>d.accept());
     await page.addInitScript(()=>{localStorage.setItem('paramount-demo-v1',JSON.stringify({properties:[{id:'NEVER-UPLOAD',name:'Private legacy fixture'}],services:[],inventory:[],pat:[],quotes:[],lighting:[],jobs:[],settings:{}}))});
     await page.goto(origin+'/team-sync-test.html');await page.waitForFunction(()=>!!window.ParamountMainApp);
     await page.locator('#team-config').setInputFiles({name:'isolated.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({mode:'isolated-test',url:'http://127.0.0.1:54321',publicKey:'sb_publishable_fixture',workspace}))});
