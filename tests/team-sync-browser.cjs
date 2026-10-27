@@ -15,14 +15,17 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
       if(url.origin===origin)return route.continue();
       if(url.origin!=='http://127.0.0.1:54321'){external.push(url.origin);return route.abort()}
       if(offline)return route.abort();
+      const headers={'access-control-allow-origin':origin,'access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'apikey, authorization, content-type'};
+      if(request.method()==='OPTIONS')return route.fulfill({status:204,headers});
+      const reply=options=>route.fulfill({headers,...options});
       const p=request.postDataJSON();
-      if(url.pathname==='/auth/v1/token')return route.fulfill({json:{user:{id:users[n]},access_token:'fictional-'+n}});
-      if(denied)return route.fulfill({status:403,json:{message:'DO NOT DISPLAY sensitive upstream details'}});
-      if(url.pathname.endsWith('_list'))return route.fulfill({json:[...rows.values()]});
+      if(url.pathname==='/auth/v1/token')return reply({json:{user:{id:users[n]},access_token:'fictional-'+n}});
+      if(denied)return reply({status:403,json:{message:'DO NOT DISPLAY sensitive upstream details'}});
+      if(url.pathname.endsWith('_list'))return reply({json:[...rows.values()]});
       if(url.pathname.endsWith('_write')){
-        if(ops.has(p.p_operation))return route.fulfill({json:ops.get(p.p_operation)});
-        const old=rows.get(p.p_id);if((old?.version||0)!==p.p_expected)return route.fulfill({status:409,json:{}});
-        const r={id:p.p_id,kind:p.p_kind,property_id:p.p_property,payload:p.p_payload,version:p.p_expected+1};rows.set(r.id,r);ops.set(p.p_operation,r);return route.fulfill({json:r});
+        if(ops.has(p.p_operation))return reply({json:ops.get(p.p_operation)});
+        const old=rows.get(p.p_id);if((old?.version||0)!==p.p_expected)return reply({status:409,json:{}});
+        const r={id:p.p_id,kind:p.p_kind,property_id:p.p_property,payload:p.p_payload,version:p.p_expected+1};rows.set(r.id,r);ops.set(p.p_operation,r);return reply({json:r});
       }
       throw Error('Unexpected test endpoint '+url.pathname);
     });

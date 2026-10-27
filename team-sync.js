@@ -13,7 +13,7 @@
     if(u.username||u.password||u.search||u.hash||u.pathname!=='/'||(!local&&(!/^https:\/\/[a-z0-9]+\.supabase\.co\/$/.test(u.href)||u.hostname.split('.')[0]!==c.testProjectRef)))throw new SyncError('invalid');
     if(local&&!['http:','https:'].includes(u.protocol))throw new SyncError('invalid');
     // Secret / service-role keys must never be used in a browser.
-    if(c.publicKey.startsWith('sb_secret_'))throw new SyncError('invalid');
+    if(c.publicKey.startsWith('sb_secret_')||(!c.publicKey.startsWith('sb_publishable_')&&c.publicKey.split('.').length!==3))throw new SyncError('invalid');
     if(c.publicKey.split('.').length===3){try{const claims=JSON.parse(atob(c.publicKey.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(claims.role!=='anon')throw Error()}catch{throw new SyncError('invalid')}}
     return Object.freeze({...c,url:u.origin});
   }

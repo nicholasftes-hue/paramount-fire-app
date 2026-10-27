@@ -3,7 +3,7 @@
   'use strict';
   if(!['localhost','127.0.0.1','[::1]'].includes(location.hostname))throw Error('Isolated sync UI must be served on loopback.');
   const {Engine,Transport,SyncError,config}=window.ParamountSync;
-  let settings=null,transport=null,engine=null,user=null,release=null,exclusive=false,timer=null,working=false;
+  let settings=null,transport=null,engine=null,user=null,release=null,exclusive=false,timer=null,working=false,authBusy=false;
   // No path from this test entry point to the original Supabase configuration.
   cloudSession=null;cloudRequest=async()=>{throw Error('Original cloud access is disabled in isolated testing.')};
   cloudAuthorizedRequest=cloudRequest;save=()=>{throw Error('Legacy writes are disabled in isolated testing.')};
@@ -43,7 +43,7 @@
     redraw();
   }
   async function sync(){
-    if(working||!transport?.session||!engine||!exclusive)return;
+    if(authBusy||working||!transport?.session||!engine||!exclusive)return;
     working=true;const target=engine;
     try{
       // Don't re-render an open editing form while a background response arrives.
@@ -61,19 +61,19 @@
   },true);
   document.addEventListener('change',async e=>{
     if(e.target.id!=='team-config'||!e.target.files?.[0])return;
-    try{if(working)throw Error('Wait for the current sync to finish.');if(e.target.files[0].size>10000)throw new SyncError('invalid');const c=config(JSON.parse(await e.target.files[0].text()));if(c.url===new URL(CLOUD_URL).origin)throw Error('Original Supabase endpoint is forbidden.');close();settings=c;transport=new Transport(c);redraw();status('Test configuration loaded. Sign in with an owner-provisioned test staff account.')}catch(error){status(error.message)}
+    try{if(working||authBusy)throw Error('Wait for the current sync to finish.');if(e.target.files[0].size>10000)throw new SyncError('invalid');const c=config(JSON.parse(await e.target.files[0].text()));if(c.url===new URL(CLOUD_URL).origin)throw Error('Original Supabase endpoint is forbidden.');close();settings=c;transport=new Transport(c);redraw();status('Test configuration loaded. Sign in with an owner-provisioned test staff account.')}catch(error){status(error.message)}
   });
   document.addEventListener('submit',async e=>{
     if(e.target.id!=='team-login')return;e.preventDefault();const form=e.target;
-    try{if(!transport)throw Error('Load isolated test configuration first.');if(working)throw Error('Wait for sync to finish.');close();const id=await transport.login(form.elements.email.value.trim(),form.elements.password.value);form.elements.password.value='';await open(id);timer=setInterval(sync,15000);await sync()}catch(error){form.elements.password.value='';status(error.message)}
+    try{if(!transport)throw Error('Load isolated test configuration first.');if(working||authBusy)throw Error('Wait for sync to finish.');authBusy=true;close();const id=await transport.login(form.elements.email.value.trim(),form.elements.password.value);form.elements.password.value='';await open(id);authBusy=false;timer=setInterval(sync,15000);await sync()}catch(error){form.elements.password.value='';status(error.message)}finally{authBusy=false}
   });
   document.addEventListener('click',async e=>{
     try{
-      if(e.target.id==='team-offline'){if(!settings)throw Error('Load test configuration first.');if(working)throw Error('Wait for sync to finish.');const id=localStorage.getItem('paramount-isolated-last:'+settings.url+':'+settings.workspace);if(!id)throw Error('No cached staff workspace. Sign in online first.');close();await open(id);if(exclusive)status('Offline mode. Reauthenticate to sync; local access is not proof of current staff authorisation.');}
-      if(e.target.id==='team-logout'){if(working)throw Error('Wait for sync to finish.');close();redraw()}
+      if(e.target.id==='team-offline'){if(!settings)throw Error('Load test configuration first.');if(working||authBusy)throw Error('Wait for sync to finish.');const id=localStorage.getItem('paramount-isolated-last:'+settings.url+':'+settings.workspace);if(!id)throw Error('No cached staff workspace. Sign in online first.');close();await open(id);if(exclusive)status('Offline mode. Reauthenticate to sync; local access is not proof of current staff authorisation.');}
+      if(e.target.id==='team-logout'){if(working||authBusy)throw Error('Wait for sync to finish.');close();redraw()}
       if(e.target.id==='team-now')await sync();
       if(e.target.id==='team-export'){const raw=settings&&user?localStorage.getItem(key()):null;if(!raw)throw Error('No open workspace to export.');const a=document.createElement('a'),url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));a.href=url;a.download='paramount-isolated-sync-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-      if(e.target.dataset.teamResolve){if(working)throw Error('Wait for sync to finish.');if(!confirm('Have you compared both copies? Export recovery JSON before discarding local work.'))return;must().resolve(e.target.dataset.teamResolve,e.target.dataset.choice);redraw();}
+      if(e.target.dataset.teamResolve){if(working||authBusy)throw Error('Wait for sync to finish.');if(!confirm('Have you compared both copies? Export recovery JSON before discarding local work.'))return;must().resolve(e.target.dataset.teamResolve,e.target.dataset.choice);redraw();}
     }catch(error){status(error.message)}
   });
   addEventListener('online',sync);show();
