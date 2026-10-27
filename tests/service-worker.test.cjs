@@ -13,7 +13,7 @@ function worker() {
   };
   const context=vm.createContext({URL,console,
     self:{registration:{scope:'https://example.test/app/'},location:{origin:'https://example.test'},addEventListener:(n,f)=>events[n]=f,skipWaiting:()=>skipped++,clients:{claim:()=>claimed++}},
-    caches:{open:async()=>cache,keys:async()=>['other-app-cache','paramount-shell-academy-v1','paramount-demo-v1','paramount-shell-main-app-v7'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['other-app-cache','paramount-shell-academy-v1','paramount-demo-v1','paramount-shell-main-app-v8'],delete:async key=>deleted.push(key)},
     fetch:(...args)=>network(...args)
   });
   vm.runInContext(fs.readFileSync('service-worker.js','utf8'),context);
@@ -60,5 +60,6 @@ test('activation deletes only obsolete Paramount caches',async()=>{
   const w=worker();await w.lifecycle('activate');
   assert.deepEqual(w.deleted,['paramount-shell-academy-v1','paramount-demo-v1']);assert.equal(w.claimed,1);
 });
+
 
 

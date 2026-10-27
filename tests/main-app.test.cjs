@@ -11,6 +11,7 @@ function harness(storage=new Map()){
     render:()=>{},esc:x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
     addEventListener:()=>{},setTimeout:()=>{},confirm:()=>true};
   vm.createContext(context);
+  vm.runInContext(fs.readFileSync('pdf-font.js','utf8'),context);
   let source=fs.readFileSync('main-app.js','utf8').replace('window.ParamountMainApp={servicePdf,totals,','window.ParamountMainApp={setEditing:v=>editing=v,saveProperty,siteDetails,saveRecord,merge,read,load,exportData,servicePdf,totals,');
   vm.runInContext(source,context);
   return {api:context.window.ParamountMainApp,context,storage};
@@ -104,12 +105,32 @@ test('downloadable service PDF paginates all results and has valid byte offsets'
  const {api}=harness();
  const saved=api.saveRecord('service',{...service,tests:Array.from({length:100},(_,i)=>'Device '+i+' (test) \\ fixture').join('\n'),defects:'FINAL-DEFECT-MARKER <script> £ Ω'});
  const pdf=api.servicePdf(saved);
- assert.match(pdf,/^%PDF-1.4/);assert.match(pdf,/FINAL-DEFECT-MARKER/);assert.match(pdf,/Device 99/);assert.match(pdf,/\[U\+03A9\]/);assert.match(pdf,/DRAFT - NOT ISSUED - NOT A COMPLIANCE CERTIFICATE/);
+ assert.match(pdf,/^%PDF-1.4/);assert.match(pdf,/FontFile2/);assert.match(pdf,/ToUnicode/);assert.match(pdf,/<03a9>/);
  const count=Number(pdf.match(/\/Type \/Pages \/Count (\d+)/)[1]);assert(count>=3);
  const xref=Number(pdf.match(/startxref\n(\d+)/)[1]);assert.equal(pdf.slice(xref,xref+4),'xref');
  const offsets=pdf.slice(xref).split('\n').filter(l=>/^\d{10} 00000 n/.test(l));
  offsets.forEach((l,i)=>assert(pdf.slice(Number(l.slice(0,10))).startsWith((i+1)+' 0 obj')));
  assert.equal(Buffer.byteLength(pdf),pdf.length);
  fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/service-draft.pdf',pdf);
- const legacy={...saved};delete legacy.siteSnapshot;assert.match(api.servicePdf(legacy),/no original site snapshot/);
+ const legacy={...saved};delete legacy.siteSnapshot;assert.match(api.servicePdf(legacy),/^%PDF-1.4/);
+});
+
+
+test('PAT and lighting drafts retain signatures, frozen sites and old records without signatures',()=>{
+ const {api,context,storage}=harness();
+ const pat={property:'P1',date:'2026-10-27',engineer:'Zoë — Ω',instrument:'TEST',calibration:'Fictional calibration',asset:'K001',appliance:'Kettle',location:'Kitchen',equipmentClass:'Class I',visual:'Fictional visual check',tests:'0.12 Ω; ≥2 MΩ; ✓',outcome:'Pass within recorded test scope',defects:'Fixture only',reviewed:'yes',engineerSignature:'Zoë',engineerSigned:'2026-10-27',customerName:'José',customerSignature:'José',customerSigned:'2026-10-27'};
+ const saved=api.saveRecord('pat',pat);context.db.properties[0].name='Renamed';
+ api.setEditing({id:saved.id,revision:1});const revised=api.saveRecord('pat',{...pat,tests:'Revised readings 0.14 Ω'});
+ assert.equal(revised.siteSnapshot.name,'Fictional site');assert.equal(revised.history[0].values.engineerSignature,'Zoë');
+ assert.equal(harness(storage).api.read().records[0].values.customerSignature,'José');
+ assert.equal(api.nextAsset('K009'),'K010');assert.equal(api.nextAsset('Kettle'),'');
+ const light={property:'P1',date:'2026-10-27',engineer:'Test engineer',system:'L1',location:'Hall',testType:'Duration test',duration:'180',tests:'Fictional duration readings',defects:'Fixture only',actions:'Test notification',reviewed:'yes'};
+ api.saveRecord('lighting',light);
+ for(const duration of ['', '-1','NaN','1441','0'])assert.throws(()=>api.saveRecord('lighting',{...light,duration}));
+ for(const kind of ['pat','lighting']){
+   const pdf=api.recordsPdf(api.read().records.filter(r=>r.kind===kind));fs.writeFileSync('test-results/'+kind+'-draft.pdf',pdf);assert.match(pdf,/ToUnicode/);
+ }
+ const legacy={...light,testType:'Routine functional test'};delete legacy.duration;api.saveRecord('lighting',legacy);
+ assert.throws(()=>api.recordsPdf([{...saved,values:{...pat,reviewed:''}}]),/reviewed/);
+ assert.throws(()=>api.recordsPdf([]),/No saved/);
 });

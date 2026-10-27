@@ -26,6 +26,9 @@ jobs:
       - run: npm run test:main-browser
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - run: npm run test:certificates-browser
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -51,5 +54,6 @@ jobs:
           name: academy-browser-results
           path: test-results/
           if-no-files-found: ignore
+
 
 

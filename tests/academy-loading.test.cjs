@@ -114,11 +114,12 @@ console.log(`PASS: ${checks} Academy logic, loading, quiz, storage, markup and s
       }}
     };
     await vm.runInNewContext(loader,{document,console,fetch:async()=>({ok:true,text:async()=>appHtml})});
-    check(appended.join(',')==='./app-updates.js?v=academy-3,./academy.js?v=academy-3,./main-app.js?v=main-app-1','Loader explicitly loads modules in order');
+    check(appended.join(',')==='./app-updates.js?v=academy-3,./academy.js?v=academy-3,./pdf-font.js?v=1,./main-app.js?v=main-app-2','Loader explicitly loads modules in order');
     check(!/<script\b[^>]*\bsrc=/.test(written),'Replacement markup contains no racing external script tags');
     check(written.includes('paramount-white-theme'),'White theme injection retained');
     if (failAcademy) check(status.textContent.includes('could not load'),'Module failure displays recoverable status');
   }
   console.log(`PASS: ${checks} total checks including document replacement/module ordering and load-failure recovery.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
 
