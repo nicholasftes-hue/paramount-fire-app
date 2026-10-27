@@ -24,7 +24,7 @@
   }
   function checkRow(d){checkDoc(d);if(!Number.isSafeInteger(d.version)||d.version<1)throw new SyncError('invalid')}
   class Transport{
-    constructor(settings,fetcher=fetch){this.settings=config(settings);this.fetcher=fetcher;this.session=null}
+    constructor(settings,fetcher=(...args)=>globalThis.fetch(...args)){this.settings=config(settings);this.fetcher=fetcher;this.session=null}
     async request(path,body,publicRequest=false){
       if(!publicRequest&&!this.session)throw new SyncError('auth');
       let response;const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);

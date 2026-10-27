@@ -44,7 +44,7 @@
   }
   async function sync(){
     if(authBusy||working||!transport?.session||!engine||!exclusive)return;
-    working=true;const target=engine;
+    working=true;status('Syncing…');const target=engine;
     try{
       // Don't re-render an open editing form while a background response arrives.
       await target.sync();if(engine===target){window.ParamountMainApp?.refresh();show();status('Sync complete. Reopen the selected tab to view incoming changes. Queued/conflict counts are shown above.');}
