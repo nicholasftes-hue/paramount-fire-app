@@ -15,7 +15,7 @@
   try {
     // The existing white V9 app is already in the same GitHub Pages folder.
     // Fetch it fresh so the dark version cannot be supplied by browser cache.
-    const response=await fetch('./index-3.html?white-dashboard-v9=main-app-1',{cache:'no-store'});
+    const response=await fetch('./index-3.html?white-dashboard-v9=main-app-2',{cache:'no-store'});
     if(!response.ok) throw new Error('White dashboard file not found ('+response.status+')');
     let html=await response.text();
     if(!html.includes('WHITE DASHBOARD')||!html.includes('home-hero')) throw new Error('The published file is not the expected white dashboard.');

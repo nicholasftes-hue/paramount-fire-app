@@ -2,7 +2,7 @@
   "name": "paramount-fire-app-checks",
   "private": true,
   "scripts": {
-    "test": "node --test --test-isolation=none tests/*.test.cjs",
+    "test": "python3 scripts/build-mark-demo.py /tmp/paramount-mark-demo-check/site && node --test --test-isolation=none tests/*.test.cjs",
     "test:browser": "node tests/browser.cjs",
     "test:main-browser": "node tests/main-browser.cjs"
   },
