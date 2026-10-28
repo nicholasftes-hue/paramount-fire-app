@@ -166,9 +166,9 @@ test('equipment register keeps latest dated asset records without mixing propert
 
 test('calendar reminder export escapes injection, folds UTF-8 and schedules both alarm windows',()=>{
  const {api}=harness();const r={id:'fictional-event',kind:'service',revision:4,values:{property:'P1',next:'2026-12-01'}};
- const calendar=api.calendarReminders([r],[{id:'P1',name:'Site, one;\nBEGIN:VEVENT — café',address:'Test address',postcode:'TEST'}]);
+ const calendar=api.calendarReminders([r],[{id:'P1',name:'Site, one;\nBEGIN:VEVENT — café'+('é'.repeat(80))+'\rEND:VEVENT',address:'Test address',postcode:'TEST'}]);
  assert(calendar.endsWith('\r\n'));for(const line of calendar.split('\r\n'))assert(Buffer.byteLength(line,'utf8')<=75);
- const unfolded=calendar.replace(/\r\n /g,'');assert.match(unfolded,/Site\\, one\\;\\nBEGIN:VEVENT/);
+ const unfolded=calendar.replace(/\r\n /g,'');assert.match(unfolded,/Site\\, one\\;\\nBEGIN:VEVENT/);assert.match(unfolded,/\\nEND:VEVENT/);
  assert.equal(unfolded.split('\r\n').filter(s=>s==='BEGIN:VEVENT').length,1);
  assert.match(unfolded,/DTSTART;VALUE=DATE:20261201/);assert.match(unfolded,/SEQUENCE:4/);
  for(const days of [30,7])assert.match(unfolded,new RegExp('TRIGGER:-P'+days+'D'));

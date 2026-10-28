@@ -243,7 +243,7 @@
   }
   // Calendar alarms run in the user's calendar after import, including when this app is closed.
   function calendarReminders(records, sites=properties()) {
-    const escape=value=>String(value||'').replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,');
+    const escape=value=>String(value||'').replace(/\\/g,'\\\\').replace(/\r\n|\r|\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,');
     const date=value=>value.replace(/-/g,'');
     const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Paramount Fire//Service reminders//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
     const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
