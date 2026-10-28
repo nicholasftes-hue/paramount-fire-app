@@ -3,6 +3,7 @@ const assert=require('node:assert/strict'),http=require('node:http'),fs=require(
 const {randomUUID}=require('node:crypto'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),rows=new Map(),ops=new Map(),users=[randomUUID(),randomUUID(),randomUUID()],workspace=randomUUID(),errors=[],external=[];
 let offline=false,denied=false;
+const issueId=randomUUID(),requestId=randomUUID(),inviteToken='c'.repeat(64);let issuedRecord=null,revoked=false;
 const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req.url,'http://localhost').pathname.slice(1)||'index.html');if(!p.startsWith(root+path.sep)||!fs.existsSync(p)){res.writeHead(404).end();return}res.setHeader('Content-Type',p.endsWith('.js')?'application/javascript':p.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(p))});
 (async()=>{let browser;try{
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
@@ -21,6 +22,10 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
       const p=request.postDataJSON();
       if(url.pathname==='/auth/v1/token')return reply({json:{user:{id:users[n]},access_token:'fictional-'+n}});
       if(denied)return reply({status:403,json:{message:'DO NOT DISPLAY sensitive upstream details'}});
+      if(url.pathname.endsWith('/paramount_issue')){assert.equal(p.p_workspace,workspace);assert.equal(p.p_expected,rows.get(p.p_document).version);assert.match(p.p_note,/Fictional competent/);issuedRecord=p.p_document;return reply({json:{id:issueId,digest:'d'.repeat(64)}})}
+      if(url.pathname.endsWith('/paramount_signature_invite')){assert.equal(p.p_issue,issueId);assert.equal(p.p_hours,72);return reply({json:{request:requestId,token:inviteToken,expires_at:'2026-11-01T12:00:00Z'}})}
+      if(url.pathname.endsWith('/paramount_signature_revoke')){assert.equal(p.p_request,requestId);revoked=true;return reply({json:null})}
+      if(url.pathname.endsWith('/paramount_issue_history')){assert.equal(p.p_document,issuedRecord);return reply({json:{issues:[{id:issueId}],events:[{event:'issued'}]}})}
       if(url.pathname.endsWith('_list'))return reply({json:[...rows.values()]});
       if(url.pathname.endsWith('_write')){
         if(ops.has(p.p_operation))return reply({json:ops.get(p.p_operation)});
@@ -49,6 +54,15 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
   }
   for(const p of [b.page,c.page]){await sync(p);await tab(p,'Service Records');assert.equal(await p.locator('.main-record').count(),1);await tab(p,'PAT Testing');assert.equal(await p.locator('.main-record').count(),1);await tab(p,'Emergency Lighting');assert.equal(await p.locator('.main-record').count(),1)}
   assert.equal(rows.size,4);
+  const service=[...rows.values()].find(r=>r.kind==='service');
+  await a.page.locator('#team-sync details:has(#team-issue) summary').click();
+  await a.page.locator('#team-issue [name=document]').selectOption(service.id);await a.page.locator('#team-issue [name=note]').fill('Fictional competent review with limitations');await a.page.locator('#team-issue button').first().click();
+  await a.page.locator('#team-status').filter({hasText:'Frozen revision issued'}).waitFor();assert.equal(await a.page.locator('#team-invite [name=issue]').inputValue(),issueId);
+  await a.page.locator('#team-invite [name=recipient]').fill('Fictional customer');await a.page.locator('#team-invite button').click();await a.page.locator('#team-invitation a').waitFor();
+  const invitation=new URL(await a.page.locator('#team-invitation a').getAttribute('href'));assert.equal(invitation.search,'');assert.equal(new URLSearchParams(invitation.hash.slice(1)).get('token'),inviteToken);
+  await a.page.locator('#team-revoke button').click();await a.page.locator('#team-status').filter({hasText:'Unsigned link revoked'}).waitFor();assert(revoked);
+  await a.page.locator('#team-issue-history').click();await a.page.waitForFunction(()=>document.getElementById('team-audit').textContent.includes('issued'));
+
   offline=true;await tab(a.page,'Properties');await a.page.locator('[data-main-property-edit]').click();await a.page.locator('#main-property-form [name=name]').fill('Offline revision');await a.page.locator('#main-property-form button[type=submit]').click();await a.page.locator('#team-now').click();await a.page.locator('#team-status').filter({hasText:'Cloud unavailable'}).waitFor();assert.equal(rows.get(property).payload.name,'Fictional shared site');
   offline=false;await sync(a.page);assert.equal(rows.get(property).payload.name,'Offline revision');await sync(b.page);
   // Two reviewed edits from the same server base become a visible conflict.
@@ -58,7 +72,7 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
   // A second tab cannot acquire the same editing lock.
   const second=await a.context.newPage();await second.goto(origin+'/team-sync-test.html');await second.waitForFunction(()=>!!window.ParamountMainApp);await second.locator('#team-config').setInputFiles({name:'test.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({mode:'isolated-test',url:'http://127.0.0.1:54321',publicKey:'sb_publishable_fixture',workspace}))});await second.locator('#team-offline').click();await second.locator('#team-status').filter({hasText:'another tab'}).waitFor();await second.close();
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
-  fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/team-sync-browser.json',JSON.stringify({passed:true,scenarios:['three staff/four kinds','no legacy upload','offline queue/reconnect','conflict review','access denied/redaction','exclusive tab lock'],external,errors},null,2));
+  fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/team-sync-browser.json',JSON.stringify({passed:true,scenarios:['three staff/four kinds','controlled issue/invite/revoke/audit UI','no legacy upload','offline queue/reconnect','conflict review','access denied/redaction','exclusive tab lock'],external,errors},null,2));
   console.log('PASS: isolated team sync browser scenarios');
 }catch(e){console.error(e);process.exitCode=1}finally{await browser?.close();server.close()}})();
 

@@ -33,7 +33,7 @@ async function allSubjects(page){
 }
 async function lesson(page,id){
   await allSubjects(page);
-  await page.locator(`[data-academy-subject="${id.startsWith('fire')?'fire':'cctv'}"]`).click();
+  await page.locator(`[data-academy-subject="${({'electrical-safety':'electrical','intruder-basics':'intruder','lighting-basics':'lighting','skills-diagnosis':'skills'}[id]||(id.startsWith('fire')?'fire':'cctv'))}"]`).click();
   await page.locator(`[data-academy-lesson="${id}"]`).click();
   await page.locator('#academy-quiz').waitFor();
 }
@@ -79,8 +79,8 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         assert.equal(await page.locator(`[data-academy-subject="${id}"]`).evaluate(el=>el===document.activeElement),true);
       }
     });
-    await check('all six quizzes validate missing answers, explain failures, retry and save tab progress',async()=>{
-      for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]})){
+    await check('all ten quizzes validate missing answers, explain failures, retry and save tab progress',async()=>{
+      for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2], 'electrical-safety':[1,2,0,1,2,0], 'intruder-basics':[1,2,0,1,2,0], 'lighting-basics':[1,2,0,1,2,0], 'skills-diagnosis':[1,2,0,1,2,0]})){
         await lesson(page,id);
         await page.locator('#academy-quiz button[type="submit"]').click();
         assert.equal(await page.locator('#academy-result').innerText(),'');
@@ -92,7 +92,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         await page.locator('[data-academy-back]').first().click();
         assert.match(await page.locator(`[data-academy-lesson="${id}"]`).innerText(),/Knowledge check passed/);
       }
-      assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(sessionStorage.getItem('paramount-academy-session-v1:guest'))).length),6);
+      assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(sessionStorage.getItem('paramount-academy-session-v1:guest'))).length),10);
     });
     await check('previous and next lesson buttons and keyboard activation',async()=>{
       await lesson(page,'fire-basics');await page.getByRole('button',{name:'Next lesson →',exact:true}).click();
@@ -192,7 +192,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         for(const id of ['fire','cctv','electrical','intruder','lighting','skills']){
           await p.locator(`[data-academy-subject="${id}"]`).click();assert(await p.locator('#academy-content h3').isVisible());await allSubjects(p);
         }
-        for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]})){
+        for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2], 'electrical-safety':[1,2,0,1,2,0], 'intruder-basics':[1,2,0,1,2,0], 'lighting-basics':[1,2,0,1,2,0], 'skills-diagnosis':[1,2,0,1,2,0]})){
           await lesson(p,id);await quiz(p,answers);assert.match(await p.locator('#academy-result').innerText(),/Knowledge check passed/);
         }
       }finally{await ctx.close()}

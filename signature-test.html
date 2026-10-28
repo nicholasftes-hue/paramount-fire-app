@@ -10,5 +10,6 @@
 <section id="signature-document" aria-label="Record to acknowledge"></section>
 <form id="signature-accept" hidden><label>Your full name<input name="signer" required minlength="2" maxlength="150" autocomplete="name"></label>
 <label><input name="consent" type="checkbox" required><span id="signature-consent"></span></label><button>Acknowledge this exact record</button></form>
+<button id="signature-receipt" type="button" hidden>Download acknowledgement receipt (JSON)</button>
 <p id="signature-status" role="status" aria-live="polite"></p><button id="signature-close" type="button">Clear record and invitation</button>
 </main><script src="team-sync.js"></script><script src="signature-test.js"></script></body></html>

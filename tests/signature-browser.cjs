@@ -31,6 +31,9 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,new URL(
  assert.match(await page.locator('#signature-consent').innerText(),/fictional scope/);
  await page.locator('[name=signer]').fill('Test Customer');await page.locator('#signature-accept button').click();assert.equal(requests.length,1);
  await page.locator('[name=consent]').check();await page.locator('#signature-accept button').click();await page.locator('#signature-status').filter({hasText:'Acknowledged by Test Customer'}).waitFor();assert.equal(requests.length,2);assert(await page.locator('#signature-accept').isHidden());
+ const downloading=page.waitForEvent('download');await page.locator('#signature-receipt').click();const download=await downloading;
+ fs.mkdirSync('test-results',{recursive:true});await download.saveAs('test-results/signature-receipt.json');const receipt=JSON.parse(fs.readFileSync('test-results/signature-receipt.json','utf8'));
+ assert.equal(receipt.digest,digest);assert.equal(receipt.signer_name,'Test Customer');assert(!JSON.stringify(receipt).includes(token));
  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
  await page.locator('#signature-close').click();assert.equal(await page.locator('#signature-document').innerText(),'');assert.equal(await page.locator('#signature-token').inputValue(),'');
  denied=true;await page.locator('#signature-token').fill(token);await page.locator('#signature-open button').click();await page.locator('#signature-status').filter({hasText:'Record unavailable'}).waitFor();assert(!await page.locator('body').innerText().then(t=>t.includes('SENSITIVE')));assert(await page.locator('#signature-accept').isHidden());
