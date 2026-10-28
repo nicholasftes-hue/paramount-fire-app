@@ -79,7 +79,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         assert.equal(await page.locator(`[data-academy-subject="${id}"]`).evaluate(el=>el===document.activeElement),true);
       }
     });
-    await check('all ten quizzes validate missing answers, explain failures, retry and save tab progress',async()=>{
+    await check('all 22 quizzes validate missing answers, explain failures, retry and save tab progress',async()=>{
       for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2], 'electrical-safety':[1,2,0,1,2,0], 'intruder-basics':[1,2,0,1,2,0], 'lighting-basics':[1,2,0,1,2,0], 'skills-diagnosis':[1,2,0,1,2,0],'fire-intermediate':[0,1,2,0,1,2],'fire-advanced':[0,1,2,0,1,2],'cctv-intermediate':[0,1,2,0,1,2],'cctv-advanced':[0,1,2,0,1,2],'electrical-intermediate':[0,1,2,0,1,2],'electrical-advanced':[0,1,2,0,1,2],'intruder-intermediate':[0,1,2,0,1,2],'intruder-advanced':[0,1,2,0,1,2],'lighting-intermediate':[0,1,2,0,1,2],'lighting-advanced':[0,1,2,0,1,2],'skills-intermediate':[0,1,2,0,1,2],'skills-advanced':[0,1,2,0,1,2]})){
         await lesson(page,id);
         await page.locator('#academy-quiz button[type="submit"]').click();
@@ -99,6 +99,8 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
       assert.match(await page.locator('#academy-content h3').innerText(),/C-TEC/);
       await page.getByRole('button',{name:'Next lesson →',exact:true}).click();
       assert.match(await page.locator('#academy-content h3').innerText(),/Fire alarm servicing/);
+      await page.getByRole('button',{name:'Next lesson →',exact:true}).click();assert.match(await page.locator('#academy-content h3').innerText(),/cause-and-effect/);
+      await page.getByRole('button',{name:'Next lesson →',exact:true}).click();assert.match(await page.locator('#academy-content h3').innerText(),/conflicting fire-system evidence/);
       await page.getByRole('button',{name:'Back to learning path',exact:true}).click();
       await lesson(page,'fire-ctec');
       await page.getByRole('button',{name:'← Previous lesson',exact:true}).click();

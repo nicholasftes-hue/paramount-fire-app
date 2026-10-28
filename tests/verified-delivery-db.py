@@ -75,7 +75,9 @@ assert rpc('','paramount_signature_accept_verified',args,role='anon')['signed_at
 assert sql("select count(*) from paramount_sync.issue_events where event='signed' and request_id="+literal(req['request']))=='1'
 assert token not in json.dumps(receipt) and proof not in json.dumps(receipt)
 # Post-signature receipt queued once. Worker cannot duplicate provider acceptance on stale lease.
-def worker(name,args=[]):return rpc('',name,args,role='service_role')
+def worker(name,args=[]):
+    result=as_user('','select to_jsonb(public.'+name+'('+','.join(args)+'))',role='service_role')
+    return json.loads(result[-1]) if result and result[-1] else None
 claim=worker('paramount_mail_claim')
 assert claim['kind']=='receipt' # signed invitations and consumed verification codes are cancelled
 import base64,hashlib
@@ -113,3 +115,17 @@ for table in ['mail_outbox','delivery_config','reminder_subscriptions','delivery
 for statement in ['select public.paramount_signature_invite_internal(null,null,null,null)','select public.paramount_issue_internal(null,null,null,null)','select public.paramount_sync_write_role_internal(null,null,null,null,null,null,null)']:
     as_user(users[0],statement,False)
 print('PASS: shared kinds/ACL inheritance and audit, quote issue, legacy bypass denial, emailed code verification/attempt persistence/single-use proof, exact idempotent acceptance, private queue, worker lease fencing/retry/scrubbing, concurrent claims, unattended UTC 30/7 reminders/duplicate prevention/cancellation; no hosted accounts or services')
+# Verification attempt exhaustion persists across calls; expiry and revocation close proofs.
+second_req=rpc(users[0],'paramount_signature_invite',[literal(w),literal(quote_issue['id']),literal('other-fictional@example.invalid'),'72'])
+second_mail=json.loads(sql('select body from paramount_sync.mail_outbox where request_id='+literal(second_req['request'])+" and kind='invitation'"))
+second_token=second_mail['text'].split('#token=')[1]
+rpc('','paramount_signature_challenge',[literal(second_token)],role='anon')
+second_code=json.loads(sql('select body from paramount_sync.mail_outbox where request_id='+literal(second_req['request'])+" and kind='verification'"))['text'].split('code is ')[1][:8]
+for _ in range(5): assert rpc('','paramount_signature_verify',[literal(second_token),literal('bad')],role='anon') is None
+assert sql('select code_attempts from paramount_sync.signature_requests where id='+literal(second_req['request']))=='5'
+assert rpc('','paramount_signature_verify',[literal(second_token),literal(second_code)],role='anon') is None
+sql('update paramount_sync.signature_requests set proof_expires=clock_timestamp()-interval \'1 second\' where id='+literal(req['request']))
+rpc('','paramount_signature_read_verified',[literal(token),literal(proof)],False,'anon')
+rpc(users[0],'paramount_signature_revoke',[literal(w),literal(second_req['request'])])
+assert rpc('','paramount_signature_verify',[literal(second_token),literal(second_code)],role='anon') is None
+print('PASS: persistent verification lockout, expired proof and revoked invitation denial')
