@@ -1,0 +1,34 @@
+name: Isolated fictional preview checks
+on:
+  push:
+    branches: ['preview/69c45d4-fictional-20261028']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+      - run: npm test
+      - run: node tests/main-browser.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - if: ${{ !cancelled() }}
+        run: node tests/certificates-browser.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - if: ${{ !cancelled() }}
+        run: node tests/preview-offline-browser.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-69c45d4-browser-evidence
+          path: test-results/

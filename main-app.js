@@ -12,7 +12,7 @@
   const team = () => window.ParamountTeamSync;
   const scope = () => team()?.scope() || cloudSession?.user?.id || 'device-guest';
   const properties = () => team() ? team().properties() : db.properties;
-  const storageKey = () => 'paramount-main-app-v1:' + scope();
+  const storageKey = () => 'paramount-preview-workspace-69c45d4-v2:' + scope();
   const empty = () => ({version:VERSION,records:[],drafts:{}});
   const uid = () => crypto.randomUUID();
   const now = () => new Date().toISOString();
@@ -174,7 +174,7 @@
     printDocument(names[r.kind]+' — DRAFT',`<p><b>DRAFT — NOT ISSUED. NOT A COMPLIANCE CERTIFICATE.</b></p><p>Reference ${safe(r.id)} · revision ${r.revision} · ${safe(r.siteSnapshot?.name||propertyName(r.values.property))}</p>${body}<p>Prepared / reviewed by: ${safe(r.values.engineer||r.values.owner||'Office review recorded')}<br>No digital signature or statutory certification is conferred. Verify company details, scope, results and required approved certification before issue.</p>`);
   }
   function list(kind) {return state.records.filter(r=>!kind||r.kind===kind).sort((a,b)=>b.updated.localeCompare(a.updated))}
-  function banner() {if(team())return team().banner();return `<div class="main-banner"><strong>Main-app development workspace</strong><p>Records and unfinished forms are saved on this device, separated by signed-in account. ${scope()==='device-guest'?'Guest workspace — shared on this device.':''} Existing prototype records remain in their original storage. Cloud records require the separately reviewed setup.</p><p>Drafts require review. This app does not control, silence, reset or isolate a fire alarm.</p><div class="main-actions"><button type="button" data-tab="Property History">Property history</button><button type="button" data-tab="Record Backup">Backup / cloud snapshots</button><a href="#academy">Training Academy</a></div><p id="main-status" class="main-status" role="status" aria-live="polite">${safe(storageError)}</p></div>`}
+  function banner() {if(team())return team().banner();return `<div class="main-banner"><strong>Isolated preview of 69c45d4</strong><p>Fictional records and unfinished forms are saved in this browser only. ${scope()==='device-guest'?'Guest workspace — shared on this device.':''} Existing prototype records remain in their original storage. No login, shared synchronisation or external database is connected.</p><p>Drafts require review. This app does not control, silence, reset or isolate a fire alarm.</p><div class="main-actions"><button type="button" data-tab="Property History">Property history</button><button type="button" data-tab="Record Backup">Demo backup</button><a href="#academy">Training Academy</a></div><p id="main-status" class="main-status" role="status" aria-live="polite">${safe(storageError)}</p></div>`}
   function workspace(kind) {
     const stored=state.drafts[kind];if(stored){draft=stored.values;editing=stored.editing}else {draft={};editing=null}
     return `${kind==='service'?'<p>Paramount fire alarm certificates remain DRAFT pending competent review. Optional engineer and customer signature acknowledgements do not issue a certificate.</p>':''}${kind==='equipment'?'<p>SmartCell: add the exact model and verified official manual below. No manufacturer procedures have been invented or bundled. Links open only after your choice.</p>':''}<section class="panel"><h2>${editing?'Edit':'New'} ${safe(names[kind])} — draft</h2><form data-main-form="${kind}" data-main-scope="${safe(scope())}"><div class="main-grid">${buildFields(kind)}</div><div class="main-actions"><button type="submit">Review and save draft</button><button type="button" data-main-clear="${kind}">Start new / clear draft</button>${kind==='pat'?'<button type="submit" name="continueAppliance" value="yes">Save draft &amp; next appliance</button>':''}${['pat','lighting'].includes(kind)?`<button type="button" data-main-report="${kind}">Download selected site ${kind==='pat'?'PAT register':'lighting records'} PDF draft</button>`:''}</div><p>Unfinished forms save locally as you type. Dictation uses your browser’s speech service and may send audio to its provider; review every word before saving.</p><p id="dictation-status" role="status"></p><button type="button" data-main-stop>Stop dictation</button></form></section><section class="panel"><h2>Saved ${safe(names[kind])} records (${list(kind).length})</h2>${list(kind).map(recordCard).join('')||'<p>No new records yet.</p>'}</section>`;
@@ -341,7 +341,7 @@
   function officeSummary() {
     return `<section class="panel"><h2>Office dashboard</h2><p>${list('enquiry').filter(r=>r.values.status!=='Closed').length} open enquiries · ${list('callout').filter(r=>r.values.status!=='Closed after verification').length} open call-outs / defects · ${list('quote').length} draft quotes · ${list('invoice').length} draft invoices</p><p>Follow-ups and engineer visits appear below. Public enquiry submission and automatic messages are not configured.</p><div class="main-actions"><button data-tab="Call-outs">Call-outs</button><button data-tab="Quotes">Quotes</button><button data-tab="Invoices">Invoices</button><button data-tab="Planner">Planner</button></div></section>`+scheduleSummary();
   }
-  function backupPage(){return `<section class="panel"><h2>Record backup and cloud snapshots</h2><p>Export includes this account’s new records, revisions and unfinished forms. Existing device records have a separate backup. Neither export includes authentication tokens.</p><div class="main-actions"><button data-main-export>Download workspace JSON</button><button data-backup>Download existing device records</button><button data-main-raw>Download raw workspace (recovery)</button></div><label>Restore workspace JSON (merge only; conflicting records are rejected)<input type="file" id="main-import" accept="application/json,.json"></label><h3>Supabase snapshots — optional, manual</h3><p>Requires an owner-reviewed main_app_snapshots table and RLS policies. No setup runs automatically. Upload saves an immutable snapshot; it never replaces cloud properties or other snapshots. Automatic syncing and team sharing are not enabled.</p><div class="main-actions"><button data-main-upload>Upload reviewed workspace snapshot</button><button data-main-cloud-list>List my cloud snapshots</button></div><div id="main-cloud-list"></div></section>`}
+  function backupPage(){return `<section class="panel"><h2>Demo backup</h2><p>Fictional records only. Backups contain your local demo entries.</p><button data-main-export>Download workspace JSON</button><button data-backup>Download property records</button><button data-main-raw>Download raw workspace</button><label>Restore fictional demo workspace<input type="file" id="main-import" accept="application/json,.json"></label></section>`}
   // Local property directory uses the existing device database; no cloud writes.
   const siteDetails = p => Object.fromEntries(['id','name','address','postcode','panel','contact','phone','email'].map(k=>[k,String(p?.[k]||'')]));
   function propertyDirectory() {
@@ -486,26 +486,8 @@
     commit(s=>{for(const r of data.records){const old=s.records.find(x=>x.id===r.id);if(old&&JSON.stringify(old)!==JSON.stringify(r))throw Error('Backup conflicts with an existing record. No changes imported.')}for(const r of data.records)if(!s.records.some(x=>x.id===r.id))s.records.push(r)});
     // Unfinished forms are exported for recovery but never overwrite current work on import.
   }
-  async function upload() {
-    if(!cloudSession?.user?.id)throw Error('Sign in using the existing Cloud Properties screen first.');
-    if(storageError)throw Error(storageError);
-    if(!confirm('Upload this account’s saved records and revision history to its private Supabase snapshots? Unfinished forms are excluded. No existing records will be overwritten.'))return;
-    const payload={...exportData(),drafts:{}};await cloudAuthorizedRequest('/rest/v1/main_app_snapshots',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({id:uid(),user_id:cloudSession.user.id,payload})});message('Snapshot uploaded. No existing cloud properties were changed.');
-  }
-  async function cloudList() {
-    if(!cloudSession?.user?.id)throw Error('Sign in using Cloud Properties first.');
-    const rows=await cloudAuthorizedRequest('/rest/v1/main_app_snapshots?select=id,created_at&order=created_at.desc&limit=30');
-    const el=document.getElementById('main-cloud-list');if(el)el.innerHTML=rows.map(r=>`<p>${safe(r.created_at)} <button data-main-cloud-download="${safe(r.id)}">Download snapshot JSON</button></p>`).join('')||'No snapshots.';
-  }
   function stopSpeech(){if(speech){speech.onresult=null;speech.abort();speech=null}speechTarget=null}
-  function dictate(name) {
-    const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;if(!Recognition)throw Error('Dictation is unavailable in this browser. Use the keyboard microphone or type the notes.');
-    const form=document.querySelector('form[data-main-form]');if(!form)return;
-    if(!confirm('Start browser dictation? Your browser may send audio to its speech provider. Review the transcript before saving.'))return;
-    stopSpeech();speechTarget=form.elements.namedItem(name);speech=new Recognition();speech.lang='en-GB';speech.interimResults=false;
-    speech.onresult=e=>{if(!speechTarget?.isConnected)return;const text=Array.from(e.results).map(r=>r[0].transcript).join(' ');speechTarget.value+=(speechTarget.value?'\n':'')+text;const reviewed=form.elements.namedItem('reviewed');if(reviewed)reviewed.checked=false;remember();document.getElementById('dictation-status').textContent='Draft transcript added. Engineer review is required.'};
-    speech.onerror=()=>{const el=document.getElementById('dictation-status');if(el)el.textContent='Dictation stopped or unavailable. Type or use your keyboard microphone.'};speech.start();document.getElementById('dictation-status').textContent='Listening… select Stop dictation when finished.';
-  }
+  function dictate(){throw Error('Voice services are disabled in this offline demonstration. Type fictional notes.')}
   document.addEventListener('input',e=>{if(e.target.id==='main-property-search')showProperties(e.target.value);const form=e.target.closest('form[data-main-form]');if(!form)return;if(form.dataset.mainScope!==scope()){message('Account changed. Reload before editing.');return}load();if(e.target.name!=='reviewed')form.elements.namedItem('reviewed').checked=false;remember();updatePreview(form)});
   document.addEventListener('submit',e=>{const form=e.target.closest('form[data-main-form]');if(!form)return;e.preventDefault();stopSpeech();if(form.dataset.mainScope!==scope()){message('Account changed. Reload this form before saving.');return}load();try{const r=saveRecord(form.dataset.mainForm,fields(form));const continuing=e.submitter?.name==='continueAppliance'&&r.revision===1;
       if(continuing){const v=r.values;commit(s=>s.drafts.pat={values:Object.fromEntries(['property','date','engineer','instrument','calibration','location','next'].map(k=>[k,v[k]||'']).concat([['asset',nextAsset(v.asset)],['reviewed','']])),editing:null,updated:now()})}
@@ -542,9 +524,6 @@
       }
       else if(b.hasAttribute('data-main-export'))download('paramount-workspace-backup.json',JSON.stringify(exportData(),null,2));
       else if(b.hasAttribute('data-main-raw'))download('paramount-workspace-raw.txt',team()?team().raw():localStorage.getItem(storageKey())||'');
-      else if(b.hasAttribute('data-main-upload'))await upload();
-      else if(b.hasAttribute('data-main-cloud-list'))await cloudList();
-      else if(b.dataset.mainCloudDownload){if(!/^[0-9a-f-]{36}$/i.test(b.dataset.mainCloudDownload))throw Error('Invalid snapshot reference.');const rows=await cloudAuthorizedRequest('/rest/v1/main_app_snapshots?select=payload&id=eq.'+encodeURIComponent(b.dataset.mainCloudDownload));if(rows[0])download('paramount-cloud-snapshot.json',JSON.stringify(rows[0].payload,null,2))}
       else if(b.dataset.mainDictate)dictate(b.dataset.mainDictate);
       else if(b.hasAttribute('data-main-stop'))stopSpeech();
     }catch(error){message(error.message+' No existing cloud records were changed.')}

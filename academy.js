@@ -226,7 +226,7 @@
   function progressKey() {
     let user;
     try { user = typeof cloudSession !== 'undefined' && cloudSession?.user?.id; } catch { /* Host app may still be initialising. */ }
-    return 'paramount-academy-session-v1:' + (user || 'guest');
+    return 'paramount-preview-academy-69c45d4-session-v1:' + (user || 'guest');
   }
   function progress() {
     try { const data = JSON.parse(sessionStorage.getItem(progressKey()) || '{}'); return data && typeof data === 'object' ? data : {}; } catch { return {}; }

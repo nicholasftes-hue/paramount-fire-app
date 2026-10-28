@@ -63,7 +63,7 @@ for(const [id,correct] of Object.entries(answers)) {
     a.submit(correct);
     assert.match(a.result.textContent,/Knowledge check passed/);
     assert.equal(Object.keys(a.feedback).length,correct.length);
-    const saved=JSON.parse(a.stored.get('paramount-academy-session-v1:guest'));
+    const saved=JSON.parse(a.stored.get('paramount-preview-academy-69c45d4-session-v1:guest'));
     assert.equal(saved[id].revision,1);
     a.click('data-academy-back');
     assert.match(a.content.innerHTML,/Knowledge check passed/);
@@ -80,12 +80,12 @@ test('progress is separated by account; bad or blocked storage does not break le
   const a=academy();
   a.context.cloudSession={user:{id:'engineer-one'}};
   a.click('data-academy-lesson','fire-basics');a.submit(answers['fire-basics']);
-  assert(a.stored.has('paramount-academy-session-v1:engineer-one'));
+  assert(a.stored.has('paramount-preview-academy-69c45d4-session-v1:engineer-one'));
   a.context.cloudSession={user:{id:'engineer-two'}};
   a.click('data-academy-subject','fire');
   assert.doesNotMatch(a.content.innerHTML,/Knowledge check passed/);
   for(const stored of ['invalid json','null','42']) {
-    const b=academy({stored:new Map([['paramount-academy-session-v1:guest',stored]])});
+    const b=academy({stored:new Map([['paramount-preview-academy-69c45d4-session-v1:guest',stored]])});
     assert.doesNotThrow(()=>b.click('data-academy-subject','fire'));
   }
   const b=academy({blocked:true});b.click('data-academy-lesson','fire-basics');b.submit(answers['fire-basics']);

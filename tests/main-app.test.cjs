@@ -50,9 +50,9 @@ test('planner rejects overlap for the same engineer, permits adjacent and cancel
 test('workspace storage is account separated and malformed data is never overwritten',()=>{
  const {api,context,storage}=harness();api.saveRecord('quote',commercial);
  context.cloudSession={user:{id:'account-b'}};api.load();assert.equal(api.read().records.length,0);api.saveRecord('quote',commercial);
- assert(storage.has('paramount-main-app-v1:device-guest'));assert(storage.has('paramount-main-app-v1:account-b'));
- const broken=new Map([['paramount-main-app-v1:device-guest','{broken']]);const h=harness(broken);
- assert.throws(()=>h.api.saveRecord('quote',commercial));assert.equal(broken.get('paramount-main-app-v1:device-guest'),'{broken');
+ assert(storage.has('paramount-preview-workspace-69c45d4-v2:device-guest'));assert(storage.has('paramount-preview-workspace-69c45d4-v2:account-b'));
+ const broken=new Map([['paramount-preview-workspace-69c45d4-v2:device-guest','{broken']]);const h=harness(broken);
+ assert.throws(()=>h.api.saveRecord('quote',commercial));assert.equal(broken.get('paramount-preview-workspace-69c45d4-v2:device-guest'),'{broken');
 });
 test('backup merging is additive, atomic on conflict, and rejects other-account snapshots',()=>{
  const a=harness();a.api.saveRecord('quote',commercial);const backup=a.api.exportData();const b=harness();b.api.merge(backup);b.api.merge(backup);assert.equal(b.api.read().records.length,1);

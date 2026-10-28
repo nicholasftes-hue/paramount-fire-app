@@ -1,6 +1,6 @@
 // Bump this version with every app-shell release. Never cache cloud/auth requests.
-const CACHE = 'paramount-shell-main-app-v11';
-const ASSETS = ['./index.html', './index-3.html', './academy.js', './academy.css', './app-updates.js', './main-app.js', './pdf-font.js', './main-app.css', './manifest.webmanifest', './icon-192.png', './icon-512.png', './academy-test.html', './templates/Paramount_Quotation_Editable.docx', './templates/Paramount_Quotation_Fillable.pdf', './templates/Paramount_Invoice_Editable.docx', './templates/Paramount_Invoice_Fillable.pdf'];
+const CACHE = 'paramount-preview-69c45d4-shell-v2';
+const ASSETS = ["./index.html", "./main-app.js", "./main-app.css", "./academy.js", "./academy.css", "./academy-test.html", "./app-updates.js", "./demo-notice.js", "./manifest.webmanifest", "./icon.svg", "./index-3.html", "./pdf-font.js", "./controlled-pdf.js", "./templates/Paramount_Quotation_Editable.docx", "./templates/Paramount_Quotation_Fillable.pdf", "./templates/Paramount_Invoice_Editable.docx", "./templates/Paramount_Invoice_Fillable.pdf"];
 const shell = new Map(ASSETS.map(path => [new URL(path, self.registration.scope).pathname, new URL(path, self.registration.scope).href]));
 shell.set(new URL('./', self.registration.scope).pathname, new URL('./index.html', self.registration.scope).href);
 self.addEventListener('install', event => {
@@ -12,7 +12,7 @@ self.addEventListener('message', event => {
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key =>
-    key !== CACHE && (key.startsWith('paramount-demo-') || key.startsWith('paramount-shell-'))
+    key !== CACHE && key.startsWith('paramount-preview-69c45d4-shell-')
   ).map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', event => {
