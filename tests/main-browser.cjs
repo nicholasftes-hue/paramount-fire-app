@@ -64,7 +64,14 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  await p.evaluate(()=>{cloudSession={user:{id:'fictional-account-b'}}});await p.locator('form[data-main-form]').evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.match(await p.locator('#main-status').innerText(),/Account changed/);await tab('Invoices');assert.equal(await p.locator('.main-record').count(),0);await p.evaluate(()=>{cloudSession=null});await tab('Invoices');assert.equal(await p.locator('.main-record').count(),1);
  });
  await check('320px, 360px, 412px and landscape forms fit the screen',async()=>{
- for(const viewport of [{width:320,height:568},{width:360,height:800},{width:412,height:915},{width:800,height:360}]){await p.setViewportSize(viewport);for(const name of ['Properties','Service Records','Extinguishers','Quotes','Invoices','Planner','Drawing Studio']){await tab(name);assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${viewport.width}`)}await tab('Service Records');const pending=p.waitForEvent('download');await p.locator('[data-main-pdf]').click();const pdfFile=await pending;assert.match(fs.readFileSync(await pdfFile.path(),'utf8'),/^%PDF-1.4/);fs.mkdirSync('test-results',{recursive:true});await p.screenshot({path:`test-results/main-app-${viewport.width}.png`,fullPage:true})}
+ await check('dashboard, equipment registers, editable Word and job invoice preparation',async()=>{
+ await tab('Dashboard');await p.locator('.main-hero').waitFor();assert.equal(await p.locator('.main-stats button').count(),4);
+ await tab('Equipment Registers');assert((await p.locator('#view').innerText()).includes('EXT-1'));
+ await tab('Service Records');const downloading=p.waitForEvent('download');await p.locator('[data-main-word]').first().click();const doc=await downloading;assert.equal(fs.readFileSync(await doc.path()).subarray(0,4).toString('hex'),'504b0304');
+ await p.locator('[data-main-job-invoice]').first().click();assert.equal(await p.locator('form[data-main-form]').getAttribute('data-main-form'),'invoice');assert.equal(await p.locator('[name=reviewed]').isChecked(),false);assert.equal(await p.locator('[name=lines]').inputValue(),'');assert((await p.locator('[name=source]').inputValue()).length>0);
+ await tab('Planner');assert((await p.locator('#view').innerText()).includes('postcode district'));const popup=p.waitForEvent('popup');await p.locator('[data-main-pack]').first().click();const pack=await popup;await pack.waitForLoadState();assert((await pack.locator('body').innerText()).includes('DRAFT ENGINEER JOB PACK'));await pack.close();
+ });
+ for(const viewport of [{width:320,height:568},{width:360,height:800},{width:412,height:915},{width:800,height:360}]){await p.setViewportSize(viewport);for(const name of ['Dashboard','Equipment Registers','Properties','Service Records','Extinguishers','Quotes','Invoices','Planner','Drawing Studio']){await tab(name);assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${viewport.width}`)}await tab('Service Records');const pending=p.waitForEvent('download');await p.locator('[data-main-pdf]').click();const pdfFile=await pending;assert.match(fs.readFileSync(await pdfFile.path(),'utf8'),/^%PDF-1.4/);fs.mkdirSync('test-results',{recursive:true});await p.screenshot({path:`test-results/main-app-${viewport.width}.png`,fullPage:true})}
  });
  await check('workspace backup downloads without authentication tokens',async()=>{
  await tab('Record Backup');const pending=p.waitForEvent('download');await p.locator('[data-main-export]').click();const file=await pending;const data=JSON.parse(fs.readFileSync(await file.path(),'utf8'));assert.equal(data.records.length,10);assert(!JSON.stringify(data).includes('access_token'));assert.equal(data.scope,'device-guest');
@@ -73,5 +80,6 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  }catch(error){results.push({name:'main-app browser run',status:'failed',error:error.stack});console.error(error);process.exitCode=1}
  finally{fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/main-browser-results.json',JSON.stringify({results,errors,external},null,2));if(context)await context.close();if(browser)await browser.close();await new Promise(resolve=>server.close(resolve))}
 })();
+
 
 

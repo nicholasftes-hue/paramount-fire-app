@@ -1,5 +1,14 @@
 # Hosted Supabase acceptance checklist
 
+
+> Update — 28 October 2026: the owner confirms Paramount Fire Test exists,
+> the isolated migration ran successfully, all four tables were verified and
+> one test Auth user exists. Proceed with feature development and single-user
+> smoke acceptance using that user; two more hosted users are not a prerequisite.
+> Additional identities are only needed for later hosted multi-user acceptance.
+> This session has not independently connected to the hosted project. Historical
+> setup steps below describe the earlier state. See [session report](SESSION-2026-10-28.md).
+
 Prepared 27 October 2026 for draft PR #2, branch `paramount-main-app-development`,
 source `a4f7b27635dc404f2e6fe878eb3a990dca476846`. Read
 [TEAM-SYNC-DEVELOPMENT.md](TEAM-SYNC-DEVELOPMENT.md) first.
@@ -174,3 +183,4 @@ creation, migration application, account creation, membership, hosted test data
 and cleanup were **not performed**. Physical-device/Safari acceptance and owner
 retention/backup decisions remain open. No production access, merge or deployment
 occurred. This checklist is preparation, not approval for real customer use.
+

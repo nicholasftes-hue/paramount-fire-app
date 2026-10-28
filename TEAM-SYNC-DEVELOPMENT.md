@@ -1,5 +1,14 @@
 # Isolated three-staff synchronisation
 
+
+> Update — 28 October 2026: the owner confirms Paramount Fire Test exists,
+> the isolated migration ran successfully, all four tables were verified and
+> one test Auth user exists. Proceed with feature development and single-user
+> smoke acceptance using that user; two more hosted users are not a prerequisite.
+> Additional identities are only needed for later hosted multi-user acceptance.
+> This session has not independently connected to the hosted project. Historical
+> setup steps below describe the earlier state. See [session report](SESSION-2026-10-28.md).
+
 Continuation of draft PR #2 on `paramount-main-app-development`, based on
 `411dd6443b1d70de487fe8ef499f536e7561f54d`. No merge or deployment is requested.
 
@@ -144,3 +153,4 @@ pagination/realtime delivery and cross-team transfers are not implemented. The
 current pull RPC returns a complete workspace and is intended for bounded test
 datasets. Test source files must be locally available to reopen offline; they are
 not added to the production service worker cache.
+

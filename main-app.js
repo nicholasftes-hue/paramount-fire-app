@@ -5,7 +5,7 @@
   const kinds = ['service','pat','lighting','extinguisher','installation','quote','invoice','visit','callout','enquiry','drawing','equipment'];
   const names = {service:'Fire alarm service',pat:'PAT test record',lighting:'Emergency lighting test',extinguisher:'Extinguisher register / service',installation:'Installation / commissioning',quote:'Quotation',invoice:'Invoice',visit:'Scheduled visit',callout:'Call-out / defect / repair',enquiry:'Customer enquiry',drawing:'Site layout',equipment:'Equipment reference'};
   const pages = {'Service Records':'service','PAT Testing':'pat','Emergency Lighting':'lighting','Extinguishers':'extinguisher','Installation Forms':'installation','Quotes':'quote','Invoices':'invoice','Planner':'visit','Call-outs':'callout','Office':'enquiry','Drawing Studio':'drawing','Equipment Library':'equipment'};
-  const extra = ['PAT Testing','Emergency Lighting','Extinguishers','Installation Forms','Invoices','Call-outs','Office','Property History','Drawing Studio','Equipment Library','Record Backup'];
+  const extra = ['PAT Testing','Emergency Lighting','Extinguishers','Installation Forms','Invoices','Call-outs','Office','Property History','Drawing Studio','Equipment Library','Record Backup','Equipment Registers'];
   if(!window.ParamountTeamSync)extra.forEach(s=>{if(!sections.includes(s))sections.push(s)});
   let activeScope = '', state, editing = null, speech = null, speechTarget = null;
   let draft = {}, storageError = '', propertyEditing = null;
@@ -73,7 +73,7 @@
       case 'callout': return common+input('Engineer','engineer')+input('Job reference','number')+select('Priority','priority',['Routine','Urgent','Immediate responsible-person attention'])+select('Status','status',['Open','Investigating','Repair proposed','Repaired — awaiting verification','Closed after verification'])+area('Reported issue and affected equipment / locations','issue',true)+area('Observed defects, risks and advice to responsible person','defects',true)+area('Actions taken / parts / verification results','actions',true)+input('Follow-up date','next','date',false)+review();
       case 'enquiry': return common+input('Site / address enquiry relates to','site')+select('Status','status',['New','Contacted','Survey needed','Quote prepared','Closed'])+input('Office owner','owner')+input('Follow-up date','next','date',false)+area('Request and next action','notes',true)+review();
       case 'drawing': return common+input('Layout title / revision','title')+area('Editable layout: label | x | y | width | height (0–100), one rectangle per line','layout',true)+area('Equipment markers: label | x | y (0–100), one per line','markers')+area('Legend, scale / not to scale, survey limitations','notes',true)+`<p class="main-wide">Coordinates use a 100 × 100 grid. Edit the values to move or resize elements. Layouts are survey drafts and must be checked on site.</p><div class="main-wide" id="drawing-preview"></div>`+review();
-      case 'equipment': return common+input('Manufacturer (e.g. SmartCell)','manufacturer')+input('Exact model / part number','model')+input('Manual title / revision','title')+input('Official manufacturer HTTPS guide URL','url','url')+input('Guide checked date','checked','date')+area('Equipment notes / approved guide references','notes',true)+review();
+      case 'equipment': return common+input('Asset / serial number (optional)','asset','text',false)+input('Installed location (optional)','location','text',false)+input('Next inspection / review date (optional)','next','date',false)+input('Manufacturer (e.g. SmartCell)','manufacturer')+input('Exact model / part number','model')+input('Manual title / revision','title')+input('Official manufacturer HTTPS guide URL','url','url')+input('Guide checked date','checked','date')+area('Equipment notes / approved guide references','notes',true)+review();
     }
   }
   function parseMoney(value) {
@@ -144,7 +144,7 @@
       const old=editing?s.records.find(r=>r.id===editing.id):null;
       if(editing&&(!old||old.revision!==editing.revision))throw Error('This record changed in another tab. Reload and review the latest record before editing.');
       const candidate={id:old?.id||uid(),kind,values:{...values},revision:(old?.revision||0)+1,created:old?.created||now(),updated:now()};
-      if(['service','pat','lighting'].includes(kind))candidate.siteSnapshot=(old?.values.property===values.property?old.siteSnapshot:null)||siteDetails(property(values.property));
+      if(['service','pat','lighting','quote','invoice'].includes(kind))candidate.siteSnapshot=(old?.values.property===values.property?old.siteSnapshot:null)||siteDetails(property(values.property));
       if(['quote','invoice'].includes(kind)&&s.records.some(r=>r.id!==candidate.id&&r.kind===kind&&r.values.number?.trim().toLowerCase()===values.number?.trim().toLowerCase()))throw Error('That document number already exists in this workspace.');
       if(s.records.some(r=>overlaps(candidate,r)))throw Error('This engineer already has an overlapping active visit. Adjust the time or engineer.');
       candidate.history=old?[...(old.history||[]),{revision:old.revision,values:old.values,updated:old.updated,...(old.siteSnapshot?{siteSnapshot:old.siteSnapshot}:{})}]:[];
@@ -154,7 +154,7 @@
   }
   function recordCard(r) {
     const v=r.values;
-    return `<article class="main-record"><h3>${safe(names[r.kind])} · ${safe(v.number||v.asset||v.title||v.status||'Draft')}</h3><p>${safe(v.date)} · ${safe(propertyName(v.property)||v.site)}<br>${safe(v.engineer||v.customer||v.manufacturer||'')} · revision ${r.revision}</p>${v.next?`<p>Follow-up: ${safe(v.next)}</p>`:''}${['quote','invoice'].includes(r.kind)?`<p>${pounds(totals(v).total)} · DRAFT — not issued</p>`:''}<div class="main-actions"><button type="button" data-main-edit="${r.id}">Review / edit</button><button type="button" data-main-print="${r.id}">Preview / PDF draft</button>${['service','pat','lighting'].includes(r.kind)?`<button type="button" data-main-pdf="${r.id}">Download ${r.kind==='service'?'service':r.kind==='pat'?'PAT':'lighting'} PDF draft</button>`:''}${r.kind==='quote'?`<button type="button" data-main-convert="${r.id}">Prepare invoice</button>`:''}${['service','pat','lighting','callout','installation','extinguisher'].includes(r.kind)?`<button type="button" data-main-job-quote="${r.id}">Prepare quotation</button>`:''}</div><details><summary>Record details and revision history</summary>${detail(r)}${(r.history||[]).map(h=>`<details><summary>Revision ${h.revision} · ${safe(h.updated)}</summary>${detail({...r,values:h.values,siteSnapshot:h.siteSnapshot,history:[]})}</details>`).join('')}</details></article>`;
+    return `<article class="main-record"><h3>${safe(names[r.kind])} · ${safe(v.number||v.asset||v.title||v.status||'Draft')}</h3><p>${safe(v.date)} · ${safe(propertyName(v.property)||v.site)}<br>${safe(v.engineer||v.customer||v.manufacturer||'')} · revision ${r.revision}</p>${v.next?`<p>Follow-up: ${safe(v.next)}</p>`:''}${['quote','invoice'].includes(r.kind)?`<p>${pounds(totals(v).total)} · DRAFT — not issued</p>`:''}<div class="main-actions"><button type="button" data-main-edit="${safe(r.id)}">Review / edit</button><button type="button" data-main-print="${safe(r.id)}">Preview / PDF draft</button><button type="button" data-main-pdf="${safe(r.id)}">Download PDF draft</button><button type="button" data-main-word="${safe(r.id)}">Download editable Word draft</button>${r.kind==='visit'?`<button type="button" data-main-pack="${safe(r.id)}">Engineer job pack</button>`:''}${r.kind==='quote'?`<button type="button" data-main-convert="${safe(r.id)}">Prepare invoice</button>`:''}${['service','pat','lighting','callout','installation','extinguisher'].includes(r.kind)?`<button type="button" data-main-job-quote="${safe(r.id)}">Prepare quotation</button><button type="button" data-main-job-invoice="${safe(r.id)}">Prepare invoice from job</button>`:''}</div><details><summary>Record details and revision history</summary>${detail(r)}${(r.history||[]).map(h=>`<details><summary>Revision ${h.revision} · ${safe(h.updated)}</summary>${detail({...r,values:h.values,siteSnapshot:h.siteSnapshot,history:[]})}</details>`).join('')}</details></article>`;
   }
   function detail(r) {
     let result=(r.siteSnapshot?'<h3>Site details recorded at first save</h3>'+Object.entries(r.siteSnapshot).map(([k,v])=>`<p><b>${safe(k)}:</b> ${safe(v)}</p>`).join(''):'')+Object.entries(r.values).map(([key,value])=>`<p><b>${safe(key)}:</b> ${safe(value)}</p>`).join('');
@@ -169,7 +169,7 @@
     let body=['service','pat','lighting'].includes(r.kind)?certificateHtml(r):detail(r);
     if(['quote','invoice'].includes(r.kind)){
       const v=r.values,t=totals(v);
-      body=`<p><b>${safe(names[r.kind])} number:</b> ${safe(v.number)}<br><b>Date:</b> ${safe(v.date)}<br><b>${r.kind==='quote'?'Valid until':'Payment due'}:</b> ${safe(v.due)}</p><h3>Customer / billing address</h3><p>${safe(v.customer)}<br>${safe(v.address).replace(/\n/g,'<br>')}</p><p><b>Site:</b> ${safe(propertyName(v.property))}<br><b>Related job / quote:</b> ${safe(v.source||'—')}</p><table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${t.lines.map(l=>`<tr><td>${safe(l.description)}</td><td>${l.quantity}</td><td>${pounds(l.unit)}</td><td>${pounds(l.amount)}</td></tr>`).join('')}</tbody></table><p>Subtotal: ${pounds(t.subtotal)}<br>VAT (${safe(v.vat)}%): ${pounds(t.tax)}<br><b>Total: ${pounds(t.total)}</b><br>VAT registration: ${safe(v.vatNumber||'Not supplied / confirm applicability')}</p><h3>Terms / exclusions</h3><p>${safe(v.terms).replace(/\n/g,'<br>')}</p><p>Company address, registration and payment details must be verified before issue.</p>`;
+      body=`<p><b>${safe(names[r.kind])} number:</b> ${safe(v.number)}<br><b>Date:</b> ${safe(v.date)}<br><b><button type="button" data-main-word="${safe(r.id)}">Download editable Word draft</button>${r.kind==='visit'?`<button type="button" data-main-pack="${safe(r.id)}">Engineer job pack</button>`:''}${r.kind==='quote'?'Valid until':'Payment due'}:</b> ${safe(v.due)}</p><h3>Customer / billing address</h3><p>${safe(v.customer)}<br>${safe(v.address).replace(/\n/g,'<br>')}</p><p><b>Site:</b> ${safe(propertyName(v.property))}<br><b>Related job / quote:</b> ${safe(v.source||'—')}</p><table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${t.lines.map(l=>`<tr><td>${safe(l.description)}</td><td>${l.quantity}</td><td>${pounds(l.unit)}</td><td>${pounds(l.amount)}</td></tr>`).join('')}</tbody></table><p>Subtotal: ${pounds(t.subtotal)}<br>VAT (${safe(v.vat)}%): ${pounds(t.tax)}<br><b>Total: ${pounds(t.total)}</b><br>VAT registration: ${safe(v.vatNumber||'Not supplied / confirm applicability')}</p><h3>Terms / exclusions</h3><p>${safe(v.terms).replace(/\n/g,'<br>')}</p><p>Company address, registration and payment details must be verified before issue.</p>`;
     }
     printDocument(names[r.kind]+' — DRAFT',`<p><b>DRAFT — NOT ISSUED. NOT A COMPLIANCE CERTIFICATE.</b></p><p>Reference ${safe(r.id)} · revision ${r.revision} · ${safe(r.siteSnapshot?.name||propertyName(r.values.property))}</p>${body}<p>Prepared / reviewed by: ${safe(r.values.engineer||r.values.owner||'Office review recorded')}<br>No digital signature or statutory certification is conferred. Verify company details, scope, results and required approved certification before issue.</p>`);
   }
@@ -191,6 +191,22 @@
     }
     if(form.dataset.mainForm==='drawing'){const el=document.getElementById('drawing-preview');try{el.innerHTML=drawing(v)}catch(error){el.textContent=error.message}}
   }
+  function registerRows(records) {
+    const latest=new Map();
+    for(const r of records){
+      if(!['pat','lighting','extinguisher','equipment'].includes(r.kind))continue;
+      const asset=r.kind==='lighting'?r.values.system:r.values.asset;
+      if(!asset?.trim())continue;
+      const key=JSON.stringify([r.values.property,r.kind,asset.trim().toLowerCase()]);
+      const old=latest.get(key);
+      if(!old||(r.values.date+r.updated).localeCompare(old.values.date+old.updated)>0)latest.set(key,r);
+    }
+    return [...latest.values()].sort((a,b)=>a.values.property.localeCompare(b.values.property)||a.kind.localeCompare(b.kind)||(a.values.asset||a.values.system).localeCompare(b.values.asset||b.values.system));
+  }
+  function equipmentRegister() {
+    const rows=registerRows(list());
+    return `<section class="panel"><h2>Property equipment registers</h2><p>Latest dated saved record per property, record type and asset reference. Lighting references may describe a circuit or group; confirm individual fittings in the saved results. Missing assets are not inferred.</p><div class="main-actions"><button data-tab="PAT Testing">Add PAT appliance</button><button data-tab="Emergency Lighting">Add lighting record</button><button data-tab="Extinguishers">Add extinguisher</button><button data-tab="Equipment Library">Add equipment reference</button></div>${rows.map(r=>`<article class="main-record"><h3>${safe(r.values.asset||r.values.system)} · ${safe(propertyName(r.values.property))}</h3><p>${safe(names[r.kind])} · ${safe(r.values.location||'Location not recorded')}<br>${safe(r.values.date)} · ${safe(r.values.outcome||'See saved scope and results')}<br>Next: ${safe(r.values.next||'Not recorded')}</p><button data-main-edit="${safe(r.id)}">Review asset record</button><button data-main-word="${safe(r.id)}">Editable Word draft</button></article>`).join('')||'<p>No saved asset references. Add an appliance, fitting, extinguisher or equipment reference.</p>'}</section>`;
+  }
   function historyPage() {
     return `<section class="panel"><h2>Property history</h2><label>Property<select id="main-history-property"><option value="">Select property…</option>${properties().map(p=>`<option value="${safe(p.id)}">${safe(p.name)}</option>`).join('')}</select></label><div id="main-history"></div></section>`;
   }
@@ -203,12 +219,40 @@
   }
   function scheduleSummary() {
     const t=today();
-    const dateAt=day=>new Date(day+'T12:00:00');
+    const dateAt=day=>new Date(day+'T12:00:00Z');
     const daysUntil=day=>Math.round((dateAt(day)-dateAt(t))/86400000);
     const visits=list('visit').filter(r=>!['Completed','Cancelled'].includes(r.values.status)).sort((a,b)=>(a.values.date+a.values.time).localeCompare(b.values.date+b.values.time));
     const follow=list().filter(r=>r.values.next&&daysUntil(r.values.next)<=30).sort((a,b)=>a.values.next.localeCompare(b.values.next));
     const followLabel=day=>{const n=daysUntil(day);return n<0?'Overdue by '+(-n)+' day(s)':n===0?'Due today':n<=7?'Due within 7 days':'Due within 30 days'};
     return `<section class="panel"><h2>Service reminders</h2><p>On-screen 30-day and 7-day reminders only. No unattended email, SMS or background delivery is configured.</p>${visits.map(r=>`<p><b>${r.values.date<t?'Overdue':'Upcoming'}</b> ${safe(r.values.date)} ${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)}</p>`).join('')||'<p>No active visits.</p>'}${follow.map(r=>`<p><b>${safe(followLabel(r.values.next))}</b> · ${safe(r.values.next)} · ${safe(names[r.kind])} · ${safe(propertyName(r.values.property))}</p>`).join('')||'<p>No follow-ups due within 30 days.</p>'}</section>`;
+  }
+  function reminderRows(records, reference=today()) {
+    if(!validDate(reference))throw Error('Invalid reminder date.');
+    const day=value=>Date.parse(value+'T12:00:00Z')/86400000;
+    return records.filter(r=>validDate(r.values.next||'')).map(r=>({record:r,days:day(r.values.next)-day(reference)})).filter(r=>r.days<=30).sort((a,b)=>a.days-b.days||a.record.id.localeCompare(b.record.id));
+  }
+  function plannerGroups(records, sites=properties()) {
+    const groups=new Map();
+    for(const r of records.filter(r=>r.kind==='visit'&&!['Completed','Cancelled'].includes(r.values.status))){
+      const site=sites.find(p=>p.id===r.values.property),area=String(site?.postcode||'').trim().toUpperCase().split(/\s+/)[0]||'Unassigned';
+      const key=r.values.date+'|'+area;
+      if(!groups.has(key))groups.set(key,{date:r.values.date,area,minutes:0,visits:[]});
+      const g=groups.get(key);g.minutes+=Number(r.values.minutes);g.visits.push(r);
+    }
+    return [...groups.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.area.localeCompare(b.area)).map(g=>({...g,visits:g.visits.sort((a,b)=>a.values.time.localeCompare(b.values.time)||a.values.engineer.localeCompare(b.values.engineer))}));
+  }
+  function plannerBoard() {
+    return '<section class="panel"><h2>Visits by date and postcode district</h2><p>Grouped for planning; allow travel time separately. This view does not calculate routes or travel times.</p>'+plannerGroups(list('visit')).map(g=>`<article class="main-plan-group"><h3>${safe(g.date)} · ${safe(g.area)}</h3><p>${g.visits.length} visits · ${g.minutes} minutes on site</p>${g.visits.map(r=>`<p>${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)} · ${safe(r.values.serviceType)}</p><button type="button" data-main-pack="${safe(r.id)}">Engineer job pack</button>`).join('')}</article>`).join('')+'</section>';
+  }
+  function dashboard() {
+    const visits=list('visit').filter(r=>r.values.date===today()&&!['Cancelled','Completed'].includes(r.values.status)).sort((a,b)=>a.values.time.localeCompare(b.values.time));
+    const reminders=reminderRows(list()),urgent=reminders.filter(r=>r.days<=7).length;
+    const cards=[['Properties',properties().length,'Properties'],["Today's visits",visits.length,'Planner'],['Due in 7 days / overdue',urgent,'Planner'],['Draft invoices',list('invoice').length,'Invoices']];
+    return `<div class="main-app main-dashboard"><section class="main-hero"><p>PARAMOUNT FIRE PROTECTION</p><h2>Your working day</h2><p>${safe(today())} · Properties, testing and office work in one place</p><div class="main-actions"><button data-tab="Service Records">Start fire alarm service</button><button data-tab="PAT Testing">Quick PAT entry</button></div></section><div class="main-stats">${cards.map(([label,n,target])=>`<button data-tab="${target}"><strong>${n}</strong><span>${label}</span></button>`).join('')}</div><section class="panel"><h2>Today's engineer visits</h2>${visits.map(r=>`<article class="main-record"><h3>${safe(r.values.time)} · ${safe(propertyName(r.values.property))}</h3><p>${safe(r.values.engineer)} · ${safe(r.values.serviceType)} · ${safe(r.values.minutes)} minutes</p><button data-main-pack="${safe(r.id)}">Open job pack</button></article>`).join('')||'<p>No active visits today. Add a visit in the planner.</p>'}</section><section class="panel"><h2>Workspaces</h2><div class="main-actions">${['Properties','Service Records','PAT Testing','Emergency Lighting','Extinguishers','Quotes','Invoices','Planner','Property History','Equipment Registers','Equipment Library'].map(t=>`<button data-tab="${t}">${t}</button>`).join('')}<a href="#academy">Paramount Academy</a></div></section>${officeSummary()}${banner()}</div>`;
+  }
+  function jobPack(r) {
+    const p=property(r.values.property),rows=list().filter(x=>x.values.property===r.values.property&&x.kind!=='visit');
+    return `<p><b>DRAFT ENGINEER JOB PACK</b> · Generated ${safe(now())}</p><h3>${safe(p?.name||'Property unavailable')}</h3><p>${safe(p?.address||'')} ${safe(p?.postcode||'')}</p><p>Contact: ${safe(p?.contact||'Not recorded')} · ${safe(p?.phone||'')}</p><h3>Visit arrangements</h3>${detail(r)}<h3>Saved site records</h3><p>Current saved revisions only. Confirm scope and conditions on site. No test results are inferred.</p>${rows.map(x=>`<section><h3>${safe(names[x.kind])} · ${safe(x.values.date)} · revision ${x.revision}</h3>${detail(x)}</section>`).join('')||'<p>No saved site records.</p>'}`;
   }
   function officeSummary() {
     return `<section class="panel"><h2>Office dashboard</h2><p>${list('enquiry').filter(r=>r.values.status!=='Closed').length} open enquiries · ${list('callout').filter(r=>r.values.status!=='Closed after verification').length} open call-outs / defects · ${list('quote').length} draft quotes · ${list('invoice').length} draft invoices</p><p>Follow-ups and engineer visits appear below. Public enquiry submission and automatic messages are not configured.</p><div class="main-actions"><button data-tab="Call-outs">Call-outs</button><button data-tab="Quotes">Quotes</button><button data-tab="Invoices">Invoices</button><button data-tab="Planner">Planner</button></div></section>`+scheduleSummary();
@@ -264,6 +308,40 @@
     const v=r.values,site=r.siteSnapshot||siteDetails(property(v.property));
     return [r.kind==='service'?'Fire alarm service certificate — DRAFT':names[r.kind]+' — DRAFT','Reference: '+r.id,'Revision: '+r.revision,'Saved: '+r.updated,'','SITE / CUSTOMER',...(!r.siteSnapshot?['Legacy record: current site details; no original site snapshot.']:['Site details recorded at first save:']),...Object.entries(site).filter(([k])=>k!=='id').map(([k,v])=>k+': '+v),'','SCOPE / OBSERVATIONS / RESULTS',...Object.entries(v).filter(([k])=>!['reviewed','property',...signatureFields].includes(k)).map(([k,v])=>(fieldLabels[k]||k)+': '+v),'','DRAFT SIGNATURE ACKNOWLEDGEMENTS','Engineer signature (typed): '+(v.engineerSignature||'________________________'),'Engineer signature date: '+(v.engineerSigned||'________________'),'Customer / responsible person: '+(v.customerName||v.recipient||'________________________'),'Customer signature (typed): '+(v.customerSignature||'________________________'),'Customer signature date: '+(v.customerSigned||'________________'),'Acknowledgement of this draft only; no approval or controlled issue.','Competent review of scope, results and approved certification is pending.'];
   }
+  function documentLines(r) {
+    if(!r||r.values.reviewed!=='yes')throw Error('Select a reviewed saved draft.');
+    if(['service','pat','lighting'].includes(r.kind))return certificateLines(r);
+    const lines=[names[r.kind]+' — DRAFT','Reference: '+r.id,'Revision: '+r.revision,'Saved: '+r.updated,'DRAFT — NOT ISSUED — NOT A COMPLIANCE CERTIFICATE'];
+    const site=r.siteSnapshot||siteDetails(property(r.values.property));
+    lines.push('',r.siteSnapshot?'Saved site details':'Current site details',...Object.entries(site).map(([k,v])=>k+': '+v));
+    lines.push('',...Object.entries(r.values).filter(([k])=>!['property','reviewed'].includes(k)).map(([k,v])=>(fieldLabels[k]||k)+': '+v));
+    if(['quote','invoice'].includes(r.kind)){const t=totals(r.values);lines.push('Subtotal: '+pounds(t.subtotal),'VAT: '+pounds(t.tax),'Total: '+pounds(t.total),'Verify company, VAT, payment and billing details before issue.')}
+    return lines;
+  }
+  function wordDocument(r) {
+    // Minimal OpenXML package with UTF-8 text. Stored ZIP entries need no external library.
+    const xml=value=>String(value).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+    const paragraph=(line,bold=false)=>'<w:p><w:r>'+(bold?'<w:rPr><w:b/><w:color w:val="12304B"/></w:rPr>':'')+'<w:t xml:space="preserve">'+xml(line)+'</w:t></w:r></w:p>';
+    const files={
+      '[Content_Types].xml':'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>',
+      '_rels/.rels':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+      'word/_rels/document.xml.rels':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="footer" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>',
+      'word/footer1.xml':'<?xml version="1.0"?><w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'+paragraph('DRAFT — NOT ISSUED — NOT A COMPLIANCE CERTIFICATE',true)+'</w:ftr>',
+      'word/document.xml':'<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>'+paragraph('PARAMOUNT FIRE PROTECTION',true)+documentLines(r).flatMap(line=>String(line).split(/\r?\n/)).map((line,i)=>paragraph(line,i===0)).join('')+'<w:sectPr><w:footerReference w:type="default" r:id="footer"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="900" w:bottom="1100" w:left="900" w:footer="500"/></w:sectPr></w:body></w:document>'
+    };
+    const encoder=new TextEncoder(),parts=[],central=[];let offset=0;
+    const header=(size)=>{const bytes=new Uint8Array(size);return {bytes,view:new DataView(bytes.buffer)}};
+    const crc=bytes=>{let c=0xffffffff;for(const b of bytes){c^=b;for(let i=0;i<8;i++)c=(c>>>1)^((c&1)?0xedb88320:0)}return (c^0xffffffff)>>>0};
+    for(const [name,value] of Object.entries(files)){
+      const n=encoder.encode(name),data=encoder.encode(value),sum=crc(data),h=header(30),v=h.view;
+      v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);v.setUint16(6,0x800,true);v.setUint16(12,33,true);v.setUint32(14,sum,true);v.setUint32(18,data.length,true);v.setUint32(22,data.length,true);v.setUint16(26,n.length,true);
+      parts.push(h.bytes,n,data);
+      const c=header(46),cv=c.view;cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x800,true);cv.setUint16(14,33,true);cv.setUint32(16,sum,true);cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);cv.setUint16(28,n.length,true);cv.setUint32(42,offset,true);central.push(c.bytes,n);offset+=30+n.length+data.length;
+    }
+    const end=header(22),v=end.view,size=central.reduce((n,b)=>n+b.length,0),count=Object.keys(files).length;
+    v.setUint32(0,0x06054b50,true);v.setUint16(8,count,true);v.setUint16(10,count,true);v.setUint32(12,size,true);v.setUint32(16,offset,true);
+    const out=new Uint8Array(offset+size+22);let i=0;for(const b of [...parts,...central,end.bytes]){out.set(b,i);i+=b.length}return out;
+  }
   function certificateHtml(r) {
     return '<section class="certificate"><h2>PARAMOUNT FIRE PROTECTION</h2>'+certificateLines(r).map((line,i)=>i===0?'<h3>'+safe(line)+'</h3>':'<p>'+safe(line).replace(/\n/g,'<br>')+'</p>').join('')+'</section>';
   }
@@ -276,7 +354,7 @@
     const normal=text=>Array.from(String(text).replace(/\r\n?/g,'\n')).map(c=>c==='\n'||font.cmap[c.codePointAt(0)]?c:'[U+'+c.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')+']').join('');
     const wrap=line=>normal(line).split('\n').flatMap(part=>{let chars=Array.from(part),out=[];while(chars.length>86){let n=chars.slice(0,86).lastIndexOf(' ');if(n<1)n=86;out.push(chars.slice(0,n).join(''));chars=chars.slice(n);if(chars[0]===' ')chars.shift()}return [...out,chars.join('')]});
     const pages=[];
-    for(const r of records){const lines=certificateLines(r).flatMap(wrap);for(let i=0;i<lines.length;i+=43)pages.push({r,lines:lines.slice(i,i+43)})}
+    for(const r of records){const lines=documentLines(r).flatMap(wrap);for(let i=0;i<lines.length;i+=43)pages.push({r,lines:lines.slice(i,i+43)})}
     const glyphs=new Map();
     const hex4=n=>n.toString(16).padStart(4,'0');
     const unicode=c=>Array.from(c).map(ch=>{const n=ch.codePointAt(0);return n<=65535?hex4(n):hex4(0xd800+((n-65536)>>10))+hex4(0xdc00+((n-65536)&1023))}).join('');
@@ -287,7 +365,7 @@
     pages.forEach(({r,lines},i)=>{
       const pageId=objects.length,streamId=pageId+1;kids.push(pageId+' 0 R');
       const text=(s,size,x,y)=>`BT /F1 ${size} Tf 1 0 0 1 ${x} ${y} Tm ${encode(s)} Tj ET\n`;
-      let content='0.06 0.17 0.28 rg 0 752 595 90 re f\n0.07 0.59 0.82 rg 0 748 595 4 re f\n1 1 1 rg\n'+text('PARAMOUNT FIRE PROTECTION',17,36,805)+text('FIELD SERVICE  /  '+(r.kind==='service'?'FIRE ALARM':r.kind==='pat'?'PAT TESTING':'EMERGENCY LIGHTING'),10,36,780)+'0.06 0.17 0.28 rg\n';
+      let content='0.06 0.17 0.28 rg 0 752 595 90 re f\n0.07 0.59 0.82 rg 0 748 595 4 re f\n1 1 1 rg\n'+text('PARAMOUNT FIRE PROTECTION',17,36,805)+text('FIELD SERVICE  /  '+(r.kind==='service'?'FIRE ALARM':r.kind==='pat'?'PAT TESTING':r.kind==='lighting'?'EMERGENCY LIGHTING':names[r.kind].toUpperCase()),10,36,780)+'0.06 0.17 0.28 rg\n';
       lines.forEach((l,j)=>{content+=text(l,10,36,724-j*13)});
       content+='0.07 0.59 0.82 RG 36 100 m 559 100 l S\n0.55 0.1 0.12 rg\n'+text('DRAFT - NOT ISSUED - NOT A COMPLIANCE CERTIFICATE',9,36,81)+text('Pending competent review. Signatures acknowledge this draft only.',8,36,65)+'0.06 0.17 0.28 rg\n'+text('Page '+(i+1)+' of '+pages.length+' | Revision: '+r.revision,8,36,45);
       objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents '+streamId+' 0 R >>',stream(content));
@@ -309,9 +387,10 @@
     remember();load();stopSpeech();originalRender();
     const kind=pages[tab],view=document.getElementById('view');
     if(tab==='Dashboard'){
-      view.insertAdjacentHTML('beforeend',`<section class="main-app"><div class="main-heading"><h2>Main-app workflows</h2></div><div class="main-actions">${extra.map(t=>`<button type="button" data-tab="${t}">${t}</button>`).join('')}</div>${banner()}${officeSummary()}</section>`);return;
+      view.innerHTML=dashboard();return;
     }
-    if(kind){const legacy=['Service Records','Quotes','Planner'].includes(tab)?`<details class="panel"><summary>Preserved prototype ${safe(tab)} — existing records</summary><div id="main-legacy"></div></details>`:'';const old=view.innerHTML;view.innerHTML=`<div class="main-app">${banner()}${tab==='Office'?officeSummary():''}${tab==='Planner'?scheduleSummary():''}${workspace(kind)}${legacy}</div>`;const el=document.getElementById('main-legacy');if(el){el.innerHTML=old;el.querySelectorAll('form').forEach(f=>f.remove());if(tab==='Planner'){el.querySelectorAll('[data-plan-filter]').forEach(b=>b.remove())}}restore();}
+    if(kind){const legacy=['Service Records','Quotes','Planner'].includes(tab)?`<details class="panel"><summary>Preserved prototype ${safe(tab)} — existing records</summary><div id="main-legacy"></div></details>`:'';const old=view.innerHTML;view.innerHTML=`<div class="main-app">${banner()}${tab==='Office'?officeSummary():''}${tab==='Planner'?plannerBoard()+scheduleSummary():''}${workspace(kind)}${legacy}</div>`;const el=document.getElementById('main-legacy');if(el){el.innerHTML=old;el.querySelectorAll('form').forEach(f=>f.remove());if(tab==='Planner'){el.querySelectorAll('[data-plan-filter]').forEach(b=>b.remove())}}restore();}
+    else if(tab==='Equipment Registers')view.innerHTML=`<div class="main-app">${banner()}${equipmentRegister()}</div>`;
     else if(tab==='Property History'||tab==='Record Backup')view.innerHTML=`<div class="main-app">${banner()}${tab==='Property History'?historyPage():backupPage()}</div>`;
     else if(tab==='Properties'){view.innerHTML=`<div class="main-app">${banner()}${propertyDirectory()}</div>`;showProperties('');}
   };
@@ -352,26 +431,28 @@
     if(e.target.id==='main-import'&&e.target.files?.[0])try{if(e.target.files[0].size>10000000)throw Error('Backup exceeds 10 MB.');const data=JSON.parse(await e.target.files[0].text());if(!confirm('Merge this backup into the current workspace? Existing records and forms will not be overwritten.'))return;merge(data);render();message('Backup merged. Existing drafts were retained.')}catch(error){message('Import rejected: '+error.message)}
   });
   document.addEventListener('click',async e=>{
-    const b=e.target.closest('[data-main-appliance],[data-main-report],[data-main-edit],[data-main-pdf],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
+    const b=e.target.closest('[data-main-appliance],[data-main-report],[data-main-edit],[data-main-pdf],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-job-invoice],[data-main-word],[data-main-pack],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
     load();try{
       if(b.dataset.mainAppliance){const form=document.querySelector('form[data-main-form="pat"]');if(!form||form.dataset.mainScope!==scope())throw Error('Reload this form before editing.');form.elements.appliance.value=b.dataset.mainAppliance;form.elements.appliance.dispatchEvent(new Event('input',{bubbles:true}));form.elements.asset.focus();}
       else if(b.dataset.mainReport){const form=document.querySelector('form[data-main-form]');const site=form?.elements.property.value;if(!site)throw Error('Select a property for the site report.');const rows=list(b.dataset.mainReport).filter(r=>r.values.property===site);if(!rows.length)throw Error('No saved records for this property.');download('paramount-'+b.dataset.mainReport+'-register-DRAFT.pdf',recordsPdf(rows),'application/pdf')}
       else if(b.dataset.mainEdit){const r=record(b.dataset.mainEdit);if(!r)return;remember();const existing=state.drafts[r.kind];if(existing&&Object.values(existing.values).some(Boolean)&&!confirm('Replace the unfinished form with this saved record?'))return;commit(s=>s.drafts[r.kind]={values:{...r.values,reviewed:''},editing:{id:r.id,revision:r.revision},updated:now()});document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');tab=Object.keys(pages).find(k=>pages[k]===r.kind);render();document.querySelector('form[data-main-form]')?.scrollIntoView({block:'start'});}
-      else if(b.dataset.mainPdf){const r=record(b.dataset.mainPdf);if(!r||!['service','pat','lighting'].includes(r.kind))throw Error('Select a saved engineering record.');download('paramount-'+r.kind+'-'+r.id+'-r'+r.revision+'-DRAFT.pdf',recordsPdf([r]),'application/pdf')}
+      else if(b.dataset.mainPdf){const r=record(b.dataset.mainPdf);if(!r)throw Error('Select a saved record.');download('paramount-'+r.kind+'-'+r.id+'-r'+r.revision+'-DRAFT.pdf',recordsPdf([r]),'application/pdf')}
       else if(b.dataset.mainPrint)preview(b.dataset.mainPrint);
       else if(b.dataset.mainClear){if(!confirm('Clear this unfinished form? Saved records are kept.'))return;commit(s=>delete s.drafts[b.dataset.mainClear]);document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');render()}
       else if(b.dataset.mainConvert){const r=record(b.dataset.mainConvert);if(!r)return;remember();if(state.drafts.invoice&&!confirm('Replace the unfinished invoice form? Saved invoices are kept.'))return;commit(s=>s.drafts.invoice={values:{...r.values,number:'',source:r.values.number,date:today(),due:'',reviewed:''},editing:null,updated:now()});document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');tab='Invoices';render()}
-      else if(b.dataset.mainJobQuote){
-        const r=record(b.dataset.mainJobQuote);
+      else if(b.dataset.mainWord){const r=record(b.dataset.mainWord);if(!r)throw Error('Record unavailable.');download('paramount-'+r.kind+'-'+r.id+'-r'+r.revision+'-DRAFT.docx',wordDocument(r),'application/vnd.openxmlformats-officedocument.wordprocessingml.document')}
+      else if(b.dataset.mainPack){const r=record(b.dataset.mainPack);if(!r||r.kind!=='visit')throw Error('Select a saved visit.');printDocument('Engineer job pack — DRAFT',jobPack(r))}
+      else if(b.dataset.mainJobQuote||b.dataset.mainJobInvoice){
+        const r=record(b.dataset.mainJobQuote||b.dataset.mainJobInvoice),target=b.dataset.mainJobInvoice?'invoice':'quote';
         if(!r || !['service','pat','lighting','callout','installation','extinguisher'].includes(r.kind))throw Error('Only saved engineering jobs can prepare quotations.');
         remember();
-        if(state.drafts.quote && Object.values(state.drafts.quote.values||{}).some(Boolean) && !confirm('Replace the unfinished quotation form? Saved quotations are kept.'))return;
+        if(state.drafts[target] && Object.values(state.drafts[target].values||{}).some(Boolean) && !confirm('Replace the unfinished '+names[target]+' form? Saved documents are kept.'))return;
         const reference=r.values.number||r.values.asset||r.id;
         const summary=[r.values.issue,r.values.defects,r.values.actions].filter(Boolean).join(' / ').slice(0,1500);
-        commit(s=>{s.drafts.quote={values:{property:r.values.property,date:today(),number:'',customer:'',address:'',due:'',lines:'',vat:'0',vatNumber:'',source:reference,terms:summary?'Job observations (verify before quoting): '+summary:'',reviewed:''},editing:null,updated:now()}});
+        commit(s=>{s.drafts[target]={values:{property:r.values.property,date:today(),number:'',customer:'',address:'',due:'',lines:'',vat:'0',vatNumber:'',source:reference,terms:summary?'Job observations (verify before quoting): '+summary:'',reviewed:''},editing:null,updated:now()}});
         document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');
-        tab='Quotes';render();
-        message('Quotation draft prepared from saved job. Enter billing details, agreed scope, quantities and prices; nothing has been issued.');
+        tab=target==='invoice'?'Invoices':'Quotes';render();
+        message(names[target]+' draft prepared from saved job. Enter billing details, agreed scope, quantities and prices; nothing has been issued.');
         document.querySelector('form[data-main-form]')?.scrollIntoView({block:'start'});
       }
       else if(b.hasAttribute('data-main-export'))download('paramount-workspace-backup.json',JSON.stringify(exportData(),null,2));
@@ -386,9 +467,10 @@
   addEventListener('beforeunload',()=>{remember();stopSpeech()});
   addEventListener('storage',e=>{if(e.key===storageKey())message('Workspace changed in another tab. Reload before editing saved records; stale revisions cannot overwrite newer records.')});
   // Read-only test interface: no credentials or automatic cloud calls.
-  window.ParamountMainApp={servicePdf,totals,refresh:()=>{if(team())state=read()},reload:()=>{state=null;render()},recordsPdf,nextAsset,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
+  window.ParamountMainApp={servicePdf,totals,wordDocument,registerRows,reminderRows,plannerGroups,jobPack,documentLines,refresh:()=>{if(team())state=read()},reload:()=>{state=null;render()},recordsPdf,nextAsset,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
   render();
 })();
+
 
 
 

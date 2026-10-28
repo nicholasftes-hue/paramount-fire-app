@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const {webcrypto}=require('node:crypto');
 function harness(storage=new Map()){
-  const context={console,crypto:webcrypto,URL,Date,JSON,Number,Set,Map,Object,Array,String,Error,FormData,Blob,
+  const context={console,TextEncoder,Uint8Array,DataView,crypto:webcrypto,URL,Date,JSON,Number,Set,Map,Object,Array,String,Error,FormData,Blob,
     key:'paramount-demo-v1',sections:[],tab:'test',db:{properties:[{id:'P1',name:'Fictional site'}]},cloudSession:null,
     localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},
     document:{querySelector:()=>null,getElementById:()=>null,addEventListener:()=>{}},window:{},
@@ -133,4 +133,32 @@ test('PAT and lighting drafts retain signatures, frozen sites and old records wi
  const legacy={...light,testType:'Routine functional test'};delete legacy.duration;api.saveRecord('lighting',legacy);
  assert.throws(()=>api.recordsPdf([{...saved,values:{...pat,reviewed:''}}]),/reviewed/);
  assert.throws(()=>api.recordsPdf([]),/No saved/);
+});
+
+
+
+test('Word packages retain actual readings, Unicode, draft status and escaped content',()=>{
+ const {api}=harness();const r=api.saveRecord('service',{...service,batteryVoltage:'24.125',batteryAh:'7',tests:'Zoë & <test> Ω',engineerSignature:'Fictional engineer'});
+ const doc=api.wordDocument(r);assert.equal(Buffer.from(doc).subarray(0,4).toString('hex'),'504b0304');
+ fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/populated-service.docx',doc);
+ const q=api.saveRecord('quote',{...commercial,lines:'Service & parts | 3 | 0.10'});fs.writeFileSync('test-results/populated-quote.docx',api.wordDocument(q));fs.writeFileSync('test-results/populated-quote.pdf',api.recordsPdf([q]));
+ assert.throws(()=>api.wordDocument({...r,values:{...r.values,reviewed:''}}),/reviewed/);
+});
+test('reminders use calendar days at 30 and 7 day boundaries including overdue and leap days',()=>{
+ const {api}=harness();const rows=['2026-10-27','2026-10-28','2026-11-04','2026-11-05','2026-11-27','2026-11-28'].map((next,i)=>({id:String(i),values:{next}}));
+ assert.deepEqual(Array.from(api.reminderRows(rows,'2026-10-28'),r=>r.days),[-1,0,7,8,30]);
+ assert.equal(api.reminderRows([{id:'leap',values:{next:'2028-03-01'}}],'2028-02-28')[0].days,2);
+});
+test('planner groups date and postcode district, excludes completed visits and totals only on-site time',()=>{
+ const {api}=harness();const rows=[{id:'a',kind:'visit',values:{...visit,time:'10:00'}},{id:'b',kind:'visit',values:{...visit,time:'09:00'}},{id:'c',kind:'visit',values:{...visit,status:'Completed'}}];
+ const groups=api.plannerGroups(rows,[{id:'P1',postcode:'ab1 2cd'}]);assert.equal(groups.length,1);assert.equal(groups[0].area,'AB1');assert.equal(groups[0].minutes,120);assert.equal(groups[0].visits[0].id,'b');
+});
+test('commercial site snapshots remain frozen after property renaming',()=>{
+ const {api,context}=harness();const r=api.saveRecord('invoice',commercial);context.db.properties[0].name='Changed';assert.equal(r.siteSnapshot.name,'Fictional site');assert(api.documentLines(r).includes('name: Fictional site'));
+});
+
+test('equipment register keeps latest dated asset records without mixing properties or record types',()=>{
+ const {api}=harness();const row=(id,kind,property,asset,date)=>({id,kind,updated:date,values:{property,asset,date}});
+ const rows=[row('old','pat','P1','K1','2026-10-01'),row('new','pat','P1','k1','2026-10-02'),row('other','pat','P2','K1','2026-10-01'),row('ext','extinguisher','P1','K1','2026-10-01'),row('missing','equipment','P1','','2026-10-01')];
+ const register=api.registerRows(rows);assert.equal(register.length,3);assert(!register.some(r=>r.id==='old'));assert(register.some(r=>r.id==='new'));
 });
