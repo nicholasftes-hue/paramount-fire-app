@@ -224,7 +224,7 @@
     const visits=list('visit').filter(r=>!['Completed','Cancelled'].includes(r.values.status)).sort((a,b)=>(a.values.date+a.values.time).localeCompare(b.values.date+b.values.time));
     const follow=list().filter(r=>r.values.next&&daysUntil(r.values.next)<=30).sort((a,b)=>a.values.next.localeCompare(b.values.next));
     const followLabel=day=>{const n=daysUntil(day);return n<0?'Overdue by '+(-n)+' day(s)':n===0?'Due today':n<=7?'Due within 7 days':'Due within 30 days'};
-    return `<section class="panel"><h2>Service reminders</h2><p>On-screen 30-day and 7-day reminders only. No unattended email, SMS or background delivery is configured.</p>${visits.map(r=>`<p><b>${r.values.date<t?'Overdue':'Upcoming'}</b> ${safe(r.values.date)} ${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)}</p>`).join('')||'<p>No active visits.</p>'}${follow.map(r=>`<p><b>${safe(followLabel(r.values.next))}</b> · ${safe(r.values.next)} · ${safe(names[r.kind])} · ${safe(propertyName(r.values.property))}</p>`).join('')||'<p>No follow-ups due within 30 days.</p>'}</section>`;
+    return `<section class="panel"><h2>Service reminders</h2><p>Import the calendar file to schedule 30-day and 7-day alarms in your calendar. Re-import after changes; delivery depends on your calendar settings. Email and SMS are not configured.</p><button type="button" data-main-calendar>Download calendar reminders</button><p></p>${visits.map(r=>`<p><b>${r.values.date<t?'Overdue':'Upcoming'}</b> ${safe(r.values.date)} ${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)}</p>`).join('')||'<p>No active visits.</p>'}${follow.map(r=>`<p><b>${safe(followLabel(r.values.next))}</b> · ${safe(r.values.next)} · ${safe(names[r.kind])} · ${safe(propertyName(r.values.property))}</p>`).join('')||'<p>No follow-ups due within 30 days.</p>'}</section>`;
   }
   function reminderRows(records, reference=today()) {
     if(!validDate(reference))throw Error('Invalid reminder date.');
@@ -241,8 +241,48 @@
     }
     return [...groups.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.area.localeCompare(b.area)).map(g=>({...g,visits:g.visits.sort((a,b)=>a.values.time.localeCompare(b.values.time)||a.values.engineer.localeCompare(b.values.engineer))}));
   }
+  // Calendar alarms run in the user's calendar after import, including when this app is closed.
+  function calendarReminders(records, sites=properties()) {
+    const escape=value=>String(value||'').replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,');
+    const date=value=>value.replace(/-/g,'');
+    const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Paramount Fire//Service reminders//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+    const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+    for(const r of records){
+      if(r.kind==='visit'&&['Cancelled','Completed'].includes(r.values.status))continue;
+      const due=r.kind==='visit'?r.values.date:r.values.next;
+      if(!validDate(due||''))continue;
+      const site=sites.find(p=>p.id===r.values.property),title=(names[r.kind]||r.kind)+' · '+(site?.name||r.values.site||'Follow-up');
+      lines.push('BEGIN:VEVENT','UID:'+escape(r.id)+'-followup@paramount.local','DTSTAMP:'+stamp,'SEQUENCE:'+r.revision,
+        'DTSTART;VALUE=DATE:'+date(due),'SUMMARY:'+escape(title),'LOCATION:'+escape([site?.address,site?.postcode].filter(Boolean).join(', ')),
+        'DESCRIPTION:'+escape('Record '+r.id+' revision '+r.revision+'. Confirm appointment and scope in the app. Calendar reminders depend on your calendar settings.'));
+      for(const days of [30,7])lines.push('BEGIN:VALARM','ACTION:DISPLAY','TRIGGER:-P'+days+'D','DESCRIPTION:'+escape(title+' due in '+days+' days'),'END:VALARM');
+      lines.push('END:VEVENT');
+    }
+    lines.push('END:VCALENDAR');
+    // RFC 5545: fold at 75 octets without splitting UTF-8 characters.
+    return lines.flatMap(line=>{const rows=[];let row='',bytes=0;for(const char of line){const n=new TextEncoder().encode(char).length;if(bytes+n>75){rows.push(row);row=' ';bytes=1}row+=char;bytes+=n}rows.push(row);return rows}).join('\r\n')+'\r\n';
+  }
+  function routeLink(visits, sites=properties()) {
+    const active=visits.filter(r=>r.kind==='visit'&&!['Cancelled','Completed'].includes(r.values.status))
+      .slice().sort((a,b)=>a.values.time.localeCompare(b.values.time)||a.id.localeCompare(b.id));
+    if(active.length<2||active.length>10)throw Error('Choose 2–10 active visits in a single date and engineer group.');
+    if(new Set(active.map(r=>r.values.date+'|'+r.values.engineer.trim().toLowerCase())).size!==1)throw Error('Route visits must share a date and engineer.');
+    const stops=active.map(r=>{const p=sites.find(s=>s.id===r.values.property);if(!p?.postcode?.trim())throw Error('Add a postcode for every route stop.');return [p.address,p.postcode].filter(Boolean).join(', ')});
+    const url=new URL('https://www.google.com/maps/dir/');url.searchParams.set('api','1');url.searchParams.set('travelmode','driving');
+    url.searchParams.set('origin',stops[0]);url.searchParams.set('destination',stops.at(-1));
+    if(stops.length>2)url.searchParams.set('waypoints',stops.slice(1,-1).join('|'));
+    return url.href;
+  }
+  function routeBoard(records) {
+    const groups=new Map();
+    for(const r of records.filter(r=>r.kind==='visit'&&!['Cancelled','Completed'].includes(r.values.status))){const key=r.values.date+'|'+r.values.engineer.trim().toLowerCase();if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r)}
+    return '<section class="panel"><h2>Driving routes by engineer and date</h2><p>Routes follow appointment times. Opening Maps shares site addresses with Google. Check traffic, access and travel time before confirming appointments.</p>'+[...groups.values()].map(visits=>{
+      let route;try{route=`<a href="${safe(routeLink(visits))}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open scheduled driving route in Maps</a>`}catch(error){route=`<p>${safe(error.message)}</p>`}
+      return `<article><h3>${safe(visits[0].values.date)} · ${safe(visits[0].values.engineer)}</h3>${route}</article>`;
+    }).join('')+'</section>';
+  }
   function plannerBoard() {
-    return '<section class="panel"><h2>Visits by date and postcode district</h2><p>Grouped for planning; allow travel time separately. This view does not calculate routes or travel times.</p>'+plannerGroups(list('visit')).map(g=>`<article class="main-plan-group"><h3>${safe(g.date)} · ${safe(g.area)}</h3><p>${g.visits.length} visits · ${g.minutes} minutes on site</p>${g.visits.map(r=>`<p>${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)} · ${safe(r.values.serviceType)}</p><button type="button" data-main-pack="${safe(r.id)}">Engineer job pack</button>`).join('')}</article>`).join('')+'</section>';
+    return routeBoard(list('visit'))+'<section class="panel"><h2>Visits by date and postcode district</h2><p>Grouped for planning; allow travel time separately. This view does not calculate routes or travel times.</p>'+plannerGroups(list('visit')).map(g=>`<article class="main-plan-group"><h3>${safe(g.date)} · ${safe(g.area)}</h3><p>${g.visits.length} visits · ${g.minutes} minutes on site</p>${g.visits.map(r=>`<p>${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)} · ${safe(r.values.serviceType)}</p><button type="button" data-main-pack="${safe(r.id)}">Engineer job pack</button>`).join('')}</article>`).join('')+'</section>';
   }
   function dashboard() {
     const visits=list('visit').filter(r=>r.values.date===today()&&!['Cancelled','Completed'].includes(r.values.status)).sort((a,b)=>a.values.time.localeCompare(b.values.time));
@@ -431,9 +471,10 @@
     if(e.target.id==='main-import'&&e.target.files?.[0])try{if(e.target.files[0].size>10000000)throw Error('Backup exceeds 10 MB.');const data=JSON.parse(await e.target.files[0].text());if(!confirm('Merge this backup into the current workspace? Existing records and forms will not be overwritten.'))return;merge(data);render();message('Backup merged. Existing drafts were retained.')}catch(error){message('Import rejected: '+error.message)}
   });
   document.addEventListener('click',async e=>{
-    const b=e.target.closest('[data-main-appliance],[data-main-report],[data-main-edit],[data-main-pdf],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-job-invoice],[data-main-word],[data-main-pack],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
+    const b=e.target.closest('[data-main-calendar],[data-main-appliance],[data-main-report],[data-main-edit],[data-main-pdf],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-job-invoice],[data-main-word],[data-main-pack],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
     load();try{
-      if(b.dataset.mainAppliance){const form=document.querySelector('form[data-main-form="pat"]');if(!form||form.dataset.mainScope!==scope())throw Error('Reload this form before editing.');form.elements.appliance.value=b.dataset.mainAppliance;form.elements.appliance.dispatchEvent(new Event('input',{bubbles:true}));form.elements.asset.focus();}
+      if(b.hasAttribute('data-main-calendar'))download('paramount-reminders.ics',calendarReminders(list()),'text/calendar;charset=utf-8');
+      else if(b.dataset.mainAppliance){const form=document.querySelector('form[data-main-form="pat"]');if(!form||form.dataset.mainScope!==scope())throw Error('Reload this form before editing.');form.elements.appliance.value=b.dataset.mainAppliance;form.elements.appliance.dispatchEvent(new Event('input',{bubbles:true}));form.elements.asset.focus();}
       else if(b.dataset.mainReport){const form=document.querySelector('form[data-main-form]');const site=form?.elements.property.value;if(!site)throw Error('Select a property for the site report.');const rows=list(b.dataset.mainReport).filter(r=>r.values.property===site);if(!rows.length)throw Error('No saved records for this property.');download('paramount-'+b.dataset.mainReport+'-register-DRAFT.pdf',recordsPdf(rows),'application/pdf')}
       else if(b.dataset.mainEdit){const r=record(b.dataset.mainEdit);if(!r)return;remember();const existing=state.drafts[r.kind];if(existing&&Object.values(existing.values).some(Boolean)&&!confirm('Replace the unfinished form with this saved record?'))return;commit(s=>s.drafts[r.kind]={values:{...r.values,reviewed:''},editing:{id:r.id,revision:r.revision},updated:now()});document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');tab=Object.keys(pages).find(k=>pages[k]===r.kind);render();document.querySelector('form[data-main-form]')?.scrollIntoView({block:'start'});}
       else if(b.dataset.mainPdf){const r=record(b.dataset.mainPdf);if(!r)throw Error('Select a saved record.');download('paramount-'+r.kind+'-'+r.id+'-r'+r.revision+'-DRAFT.pdf',recordsPdf([r]),'application/pdf')}
@@ -467,9 +508,10 @@
   addEventListener('beforeunload',()=>{remember();stopSpeech()});
   addEventListener('storage',e=>{if(e.key===storageKey())message('Workspace changed in another tab. Reload before editing saved records; stale revisions cannot overwrite newer records.')});
   // Read-only test interface: no credentials or automatic cloud calls.
-  window.ParamountMainApp={servicePdf,totals,wordDocument,registerRows,reminderRows,plannerGroups,jobPack,documentLines,refresh:()=>{if(team())state=read()},reload:()=>{state=null;render()},recordsPdf,nextAsset,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
+  window.ParamountMainApp={servicePdf,totals,calendarReminders,routeLink,wordDocument,registerRows,reminderRows,plannerGroups,jobPack,documentLines,refresh:()=>{if(team())state=read()},reload:()=>{state=null;render()},recordsPdf,nextAsset,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
   render();
 })();
+
 
 
 

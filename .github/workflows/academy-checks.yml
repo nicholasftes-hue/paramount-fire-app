@@ -32,6 +32,9 @@ jobs:
       - run: node tests/team-sync-browser.cjs
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - run: node tests/signature-browser.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -79,4 +82,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 tests/team-sync-db.py
+
 

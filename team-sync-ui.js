@@ -3,6 +3,7 @@
   'use strict';
   if(!['localhost','127.0.0.1','[::1]'].includes(location.hostname))throw Error('Isolated sync UI must be served on loopback.');
   const {Engine,Transport,SyncError,config}=window.ParamountSync;
+  let issued=null;
   let settings=null,transport=null,engine=null,user=null,release=null,exclusive=false,timer=null,working=false,authBusy=false;
   // No path from this test entry point to the original Supabase configuration.
   cloudSession=null;cloudRequest=async()=>{throw Error('Original cloud access is disabled in isolated testing.')};
@@ -25,11 +26,17 @@
       <p><button id="team-offline">Open last cached staff workspace offline</button> <button id="team-logout">Close workspace / sign out</button> <button id="team-now">Sync now</button> <button id="team-export">Export recovery JSON</button></p>
       <p>${pending} queued · ${conflicts.length} conflicts. Changes save locally first. Sync runs every 15 seconds while signed in. Review conflicts before choosing a version.</p>
       ${conflicts.map(e=>`<details><summary>Conflict: ${esc(e.local.kind)} ${esc(e.local.id)}</summary><h3>Local copy</h3><pre>${esc(JSON.stringify(e.local.payload,null,2))}</pre><h3>Cloud copy</h3><pre>${esc(JSON.stringify(e.remote.payload,null,2))}</pre><button data-team-resolve="${esc(e.local.id)}" data-choice="cloud">Use cloud copy</button> <button data-team-resolve="${esc(e.local.id)}" data-choice="local">Keep local and retry against reviewed cloud version</button></details>`).join('')}
+      <details><summary>Controlled issue and customer acknowledgement — isolated acceptance</summary>
+      <p>Requires the additive isolated controlled-issue migration and an approver role assigned by the test-project owner. Draft downloads remain drafts. Issue snapshots are immutable; acknowledgements are self-declared bearer-link receipts.</p>
+      <form id="team-issue"><label>Synchronised engineering record<select name="document" required><option value="">Choose record…</option>${docs.filter(e=>e.local.kind!=='property'&&!e.dirty&&!e.pending&&!e.remote).map(e=>`<option value="${esc(e.local.id)}">${esc(e.local.kind)} · ${esc(e.local.id)} · version ${e.base}</option>`).join('')}</select></label>
+      <label>Competent approval: scope and limitations<textarea name="note" required minlength="10" maxlength="2000"></textarea></label><button>Issue frozen record revision</button><button type="button" id="team-issue-history">Read issue audit</button></form>
+      <form id="team-invite"><label>Issue ID<input name="issue" required value="${esc(issued||'')}"></label><label>Intended recipient (not identity verification)<input name="recipient" required maxlength="254"></label><label>Link expiry (hours)<input name="hours" type="number" min="1" max="168" value="72" required></label><button>Create single-use acknowledgement link</button></form>
+      <p id="team-invitation"></p><form id="team-revoke"><label>Unsigned request ID<input name="request" required></label><button>Revoke link</button></form><pre id="team-audit"></pre></details>
       <p id="team-status" role="status"></p>`;
     document.getElementById('view').hidden=!engine;document.getElementById('tabs').hidden=!engine;
     if(engine&&!exclusive)status('This workspace is open in another tab. Close it there, then reopen here.');
   }
-  function close(){clearInterval(timer);timer=null;transport?.logout();release?.();release=null;exclusive=false;engine=null;user=null}
+  function close(){issued=null;clearInterval(timer);timer=null;transport?.logout();release?.();release=null;exclusive=false;engine=null;user=null}
   async function open(id){
     release?.();release=null;exclusive=false;
     user=id;engine=new Engine({storage:localStorage,key:key(),transport});
@@ -63,6 +70,33 @@
     if(e.target.id!=='team-config'||!e.target.files?.[0])return;
     try{if(working||authBusy)throw Error('Wait for the current sync to finish.');if(e.target.files[0].size>10000)throw new SyncError('invalid');const c=config(JSON.parse(await e.target.files[0].text()));if(c.url===new URL(CLOUD_URL).origin)throw Error('Original Supabase endpoint is forbidden.');close();settings=c;transport=new Transport(c);redraw();status('Test configuration loaded. Sign in with an owner-provisioned test staff account.')}catch(error){status(error.message)}
   });
+  const issueRpc=(name,args)=>{
+    if(!transport?.session||!engine||!exclusive)throw Error('Sign in to the isolated test workspace first.');
+    return transport.request('/rest/v1/rpc/'+name,{p_workspace:settings.workspace,...args});
+  };
+  document.addEventListener('submit',async e=>{
+    if(!['team-issue','team-invite','team-revoke'].includes(e.target.id))return;
+    e.preventDefault();if(working||authBusy)return;working=true;
+    try{
+      const form=e.target;
+      if(form.id==='team-issue'){
+        const id=form.elements.document.value,entry=must().read().docs[id];
+        if(!entry||entry.dirty||entry.pending||entry.remote)throw Error('Sync and review the current version first.');
+        const result=await issueRpc('paramount_issue',{p_document:id,p_expected:entry.base,p_note:form.elements.note.value});
+        issued=result.id;document.querySelector('#team-invite [name=issue]').value=issued;
+        document.getElementById('team-audit').textContent=JSON.stringify(result,null,2);status('Frozen revision issued in the isolated test register. Draft downloads are unchanged.');
+      }else if(form.id==='team-invite'){
+        const result=await issueRpc('paramount_signature_invite',{p_issue:form.elements.issue.value,p_recipient:form.elements.recipient.value,p_hours:Number(form.elements.hours.value)});
+        const url=new URL('signature-test.html',location.href);url.hash=new URLSearchParams({token:result.token}).toString();
+        const target=document.getElementById('team-invitation');target.replaceChildren();const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Open isolated customer acknowledgement';target.append(a,document.createTextNode(' · request '+result.request+' · expires '+result.expires_at+'. Copy link only to the intended test recipient. It is cleared on refresh.'));
+        document.querySelector('#team-revoke [name=request]').value=result.request;status('Invitation created; no email or message has been sent.');
+      }else{await issueRpc('paramount_signature_revoke',{p_request:form.elements.request.value});document.getElementById('team-invitation').replaceChildren();status('Unsigned link revoked. Audit retained.');}
+    }catch(error){status('Controlled issue unavailable or rejected. Check test migration, role, current revision and audit before retrying. '+error.message)}finally{working=false}
+  });
+  document.addEventListener('click',async e=>{
+    if(e.target.id!=='team-issue-history'||working||authBusy)return;
+    working=true;try{const result=await issueRpc('paramount_issue_history',{p_document:document.querySelector('#team-issue [name=document]').value});document.getElementById('team-audit').textContent=JSON.stringify(result,null,2)}catch(error){status(error.message)}finally{working=false}
+  });
   document.addEventListener('submit',async e=>{
     if(e.target.id!=='team-login')return;e.preventDefault();const form=e.target;
     try{if(!transport)throw Error('Load isolated test configuration first.');if(working||authBusy)throw Error('Wait for sync to finish.');authBusy=true;close();const id=await transport.login(form.elements.email.value.trim(),form.elements.password.value);form.elements.password.value='';await open(id);authBusy=false;timer=setInterval(sync,15000);await sync()}catch(error){form.elements.password.value='';status(error.message)}finally{authBusy=false}
@@ -78,3 +112,4 @@
   });
   addEventListener('online',sync);show();
 })();
+

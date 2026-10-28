@@ -101,3 +101,7 @@ as_user(users[2], f"select public.paramount_sync_list({literal(w)})", False)
 write(users[2], prop, 'property', None, site, version=2, ok=False)
 assert sql("select count(*) from paramount_sync.operations") == '8'
 print('PASS: isolated migration rollback/reapply guards, RLS/direct access denial, three staff, fourth/anonymous/foreign/revoked denial, real concurrent CAS, idempotency, property/service/PAT/lighting validation and immutable audit/revisions')
+
+
+# Additive controlled-issue migration and adversarial customer/role tests, same disposable DB.
+exec(compile(Path('tests/controlled-issue-db.py').read_text(), 'tests/controlled-issue-db.py', 'exec'))

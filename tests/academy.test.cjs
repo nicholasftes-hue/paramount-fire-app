@@ -34,7 +34,7 @@ function academy({stored = new Map(), blocked = false} = {}) {
   };
 }
 
-const answers = {'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]};
+const answers = {'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2], 'electrical-safety':[1,2,0,1,2,0], 'intruder-basics':[1,2,0,1,2,0], 'lighting-basics':[1,2,0,1,2,0], 'skills-diagnosis':[1,2,0,1,2,0]};
 
 test('all six subjects open; unpublished paths cannot be marked complete',()=>{
   const a=academy();
@@ -42,10 +42,7 @@ test('all six subjects open; unpublished paths cannot be marked complete',()=>{
     a.click('data-academy-subject',id);
     assert.equal(a.grid.hidden,true);
     assert.match(a.content.innerHTML,/<h3 tabindex="-1">/);
-    if(!['fire','cctv'].includes(id)) {
-      assert.match(a.content.innerHTML,/Lessons are not available yet/);
-      assert.doesNotMatch(a.content.innerHTML,/data-academy-lesson=/);
-    }
+    assert.match(a.content.innerHTML,/data-academy-lesson=/);
     assert.match(a.content.innerHTML,/No lessons published yet/);
     a.click('data-academy-home');
     assert.equal(a.grid.hidden,false);
@@ -71,10 +68,10 @@ for(const [id,correct] of Object.entries(answers)) {
     a.click('data-academy-back');
     assert.match(a.content.innerHTML,/Knowledge check passed/);
     const reopened=academy({stored:a.stored});
-    reopened.click('data-academy-subject',id.startsWith('fire')?'fire':'cctv');
+    reopened.click('data-academy-subject',({'electrical-safety':'electrical','intruder-basics':'intruder','lighting-basics':'lighting','skills-diagnosis':'skills'}[id] || (id.startsWith('fire')?'fire':'cctv')));
     assert.match(reopened.content.innerHTML,/Knowledge check passed/);
     const fresh=academy();
-    fresh.click('data-academy-subject',id.startsWith('fire')?'fire':'cctv');
+    fresh.click('data-academy-subject',({'electrical-safety':'electrical','intruder-basics':'intruder','lighting-basics':'lighting','skills-diagnosis':'skills'}[id] || (id.startsWith('fire')?'fire':'cctv')));
     assert.doesNotMatch(fresh.content.innerHTML,/Knowledge check passed/);
   });
 }
@@ -98,3 +95,4 @@ test('progress is separated by account; bad or blocked storage does not break le
 test('return control focuses the existing workspace without replacing it',()=>{
   const a=academy();a.returnToApp();assert.equal(a.focus.at(-1),'workspace');
 });
+

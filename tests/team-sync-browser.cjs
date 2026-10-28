@@ -53,7 +53,7 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
   offline=false;await sync(a.page);assert.equal(rows.get(property).payload.name,'Offline revision');await sync(b.page);
   // Two reviewed edits from the same server base become a visible conflict.
   for(const [p,name]of [[a.page,'Staff A'],[b.page,'Staff B']]){await tab(p,'Properties');await p.locator('[data-main-property-edit]').click();await p.locator('#main-property-form [name=name]').fill(name);await p.locator('#main-property-form button[type=submit]').click()}
-  await sync(a.page);await sync(b.page);await b.page.locator('#team-sync details summary').click();assert.match(await b.page.locator('#team-sync details').innerText(),/Staff A/);assert.match(await b.page.locator('#team-sync details').innerText(),/Staff B/);await b.page.locator('[data-choice=cloud]').click();
+  await sync(a.page);await sync(b.page);await b.page.locator('#team-sync details:has([data-team-resolve]) summary').click();assert.match(await b.page.locator('#team-sync details:has([data-team-resolve])').innerText(),/Staff A/);assert.match(await b.page.locator('#team-sync details:has([data-team-resolve])').innerText(),/Staff B/);await b.page.locator('[data-choice=cloud]').click();
   denied=true;await a.page.locator('#team-now').click();await a.page.locator('#team-status').filter({hasText:'Staff access is unavailable'}).waitFor();assert(!await a.page.locator('#team-status').innerText().then(t=>t.includes('sensitive')));denied=false;
   // A second tab cannot acquire the same editing lock.
   const second=await a.context.newPage();await second.goto(origin+'/team-sync-test.html');await second.waitForFunction(()=>!!window.ParamountMainApp);await second.locator('#team-config').setInputFiles({name:'test.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({mode:'isolated-test',url:'http://127.0.0.1:54321',publicKey:'sb_publishable_fixture',workspace}))});await second.locator('#team-offline').click();await second.locator('#team-status').filter({hasText:'another tab'}).waitFor();await second.close();
@@ -61,3 +61,4 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
   fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/team-sync-browser.json',JSON.stringify({passed:true,scenarios:['three staff/four kinds','no legacy upload','offline queue/reconnect','conflict review','access denied/redaction','exclusive tab lock'],external,errors},null,2));
   console.log('PASS: isolated team sync browser scenarios');
 }catch(e){console.error(e);process.exitCode=1}finally{await browser?.close();server.close()}})();
+

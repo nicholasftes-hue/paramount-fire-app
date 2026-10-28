@@ -72,8 +72,8 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         assert(await page.locator('#academy-content h3').isVisible());
         assert.equal(await page.locator('#academy-content h3').evaluate(el=>el===document.activeElement),true);
         if(!['fire','cctv'].includes(id)){
-          assert.match(await page.locator('#academy-content').innerText(),/Lessons are not available yet/);
-          assert.equal(await page.locator('[data-academy-lesson]').count(),0);
+          assert.match(await page.locator('#academy-content').innerText(),/No lessons published yet/);
+          assert.equal(await page.locator('[data-academy-lesson]').count(),1);
         }
         await page.locator('[data-academy-home]').click();
         assert.equal(await page.locator(`[data-academy-subject="${id}"]`).evaluate(el=>el===document.activeElement),true);
@@ -237,6 +237,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     if(context)await context.close();if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));
   }
 })();
+
 
 
 

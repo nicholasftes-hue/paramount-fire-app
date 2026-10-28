@@ -162,3 +162,24 @@ test('equipment register keeps latest dated asset records without mixing propert
  const rows=[row('old','pat','P1','K1','2026-10-01'),row('new','pat','P1','k1','2026-10-02'),row('other','pat','P2','K1','2026-10-01'),row('ext','extinguisher','P1','K1','2026-10-01'),row('missing','equipment','P1','','2026-10-01')];
  const register=api.registerRows(rows);assert.equal(register.length,3);assert(!register.some(r=>r.id==='old'));assert(register.some(r=>r.id==='new'));
 });
+
+
+test('calendar reminder export escapes injection, folds UTF-8 and schedules both alarm windows',()=>{
+ const {api}=harness();const r={id:'fictional-event',kind:'service',revision:4,values:{property:'P1',next:'2026-12-01'}};
+ const calendar=api.calendarReminders([r],[{id:'P1',name:'Site, one;\nBEGIN:VEVENT — café',address:'Test address',postcode:'TEST'}]);
+ assert(calendar.endsWith('\r\n'));for(const line of calendar.split('\r\n'))assert(Buffer.byteLength(line,'utf8')<=75);
+ const unfolded=calendar.replace(/\r\n /g,'');assert.match(unfolded,/Site\\, one\\;\\nBEGIN:VEVENT/);
+ assert.equal(unfolded.split('\r\n').filter(s=>s==='BEGIN:VEVENT').length,1);
+ assert.match(unfolded,/DTSTART;VALUE=DATE:20261201/);assert.match(unfolded,/SEQUENCE:4/);
+ for(const days of [30,7])assert.match(unfolded,new RegExp('TRIGGER:-P'+days+'D'));
+ const skipped=api.calendarReminders([{...r,kind:'visit',values:{date:'2026-12-01',status:'Cancelled'}},{...r,values:{next:'2026-02-30'}}]);
+ assert(!skipped.includes('BEGIN:VEVENT'));
+});
+test('map handoff uses appointment order, isolates engineer/day and encodes addresses',()=>{
+ const {api}=harness(),r=(id,property,time,engineer='A',date='2026-12-01')=>({id,kind:'visit',values:{property,time,engineer,date,status:'Confirmed'}});
+ const sites=[{id:'P1',address:'One & Two',postcode:'SW1A 1AA'},{id:'P2',address:'<Site>',postcode:'E1 1AA'},{id:'P3',postcode:'W1 1AA'}];
+ const url=new URL(api.routeLink([r('b','P2','10:00'),r('a','P1','09:00'),r('c','P3','11:00')],sites));
+ assert.equal(url.origin,'https://www.google.com');assert.equal(url.searchParams.get('origin'),'One & Two, SW1A 1AA');assert.equal(url.searchParams.get('waypoints'),'<Site>, E1 1AA');assert.equal(url.searchParams.get('destination'),'W1 1AA');
+ for(const visits of [[r('a','P1','09:00')],[r('a','P1','09:00'),r('b','P2','10:00','B')],[r('a','P1','09:00'),r('b','P2','10:00','A','2026-12-02')],[r('a','missing','09:00'),r('b','P2','10:00')]])assert.throws(()=>api.routeLink(visits,sites));
+ assert.throws(()=>api.routeLink(Array.from({length:11},(_,i)=>r(String(i),'P1','09:00')),sites));
+});
