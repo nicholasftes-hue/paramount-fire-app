@@ -77,7 +77,11 @@ assert token not in json.dumps(receipt) and proof not in json.dumps(receipt)
 # Post-signature receipt queued once. Worker cannot duplicate provider acceptance on stale lease.
 def worker(name,args=[]):return rpc('',name,args,role='service_role')
 claim=worker('paramount_mail_claim')
-assert claim['kind']=='receipt' # signed invitations and verification codes are cancelled
+assert claim['kind']=='receipt' # signed invitations and consumed verification codes are cancelled
+import base64,hashlib
+artifact={'filename':'paramount-acknowledged-'+req['request']+'.pdf','content':base64.b64encode(b'%PDF-1.4'+b'0'*100).decode(),'sha256':hashlib.sha256(b'%PDF-1.4'+b'0'*100).hexdigest(),'certificate_sha256':'a'*64}
+assert worker('paramount_mail_artifact',[literal(claim['id']),literal(uid()),literal(json.dumps(artifact))+'::jsonb']) is None
+assert worker('paramount_mail_artifact',[literal(claim['id']),literal(claim['lease']),literal(json.dumps(artifact))+'::jsonb'])['attachment']==artifact
 assert not worker('paramount_mail_finish',[literal(claim['id']),literal(uid()),literal('accepted'),literal('fake-provider')])
 assert worker('paramount_mail_finish',[literal(claim['id']),literal(claim['lease']),literal('retry'),'null'])
 sql(f"update paramount_sync.mail_outbox set next_at=clock_timestamp()-interval '1 second' where id={literal(claim['id'])}")

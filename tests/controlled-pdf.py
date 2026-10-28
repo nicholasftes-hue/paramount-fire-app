@@ -8,3 +8,9 @@ for kind in ['service','pat','lighting','quote']:
     assert 'Ω' in text and '£' in text
     assert 'DRAFT - NOT ISSUED' not in text
 print('PASS: four controlled evidence PDFs independently parsed; frozen content, scope, Unicode, verification, consent and signature audit evidence retained')
+
+reader=PdfReader('test-results/cryptographically-signed-quote.pdf',strict=True)
+fields=reader.get_fields()
+assert fields['Paramount controlled evidence']['/FT']=='/Sig'
+assert 'Fictional Customer' in '\n'.join(page.extract_text() for page in reader.pages)
+print('PASS: incremental cryptographic PDF signature preserves independent parsing and signed field')

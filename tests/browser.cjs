@@ -66,14 +66,14 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
       assert.equal(await page.locator('.academy-card').count(),6);
       assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
     });
-    await check('six subject cards, coming-soon paths and return focus',async()=>{
+    await check('six subject cards, all levels and return focus',async()=>{
       for(const id of ['fire','cctv','electrical','intruder','lighting','skills']){
         await page.locator(`[data-academy-subject="${id}"] .academy-title`).click();
         assert(await page.locator('#academy-content h3').isVisible());
         assert.equal(await page.locator('#academy-content h3').evaluate(el=>el===document.activeElement),true);
         if(!['fire','cctv'].includes(id)){
           assert.match(await page.locator('#academy-content').innerText(),/Intermediate/);
-          assert.equal(await page.locator('[data-academy-lesson]').count(),1);
+          assert.equal(await page.locator('[data-academy-lesson]').count(),3);
         }
         await page.locator('[data-academy-home]').click();
         assert.equal(await page.locator(`[data-academy-subject="${id}"]`).evaluate(el=>el===document.activeElement),true);

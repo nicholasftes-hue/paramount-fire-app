@@ -76,3 +76,8 @@ test('keeping a conflicted engineering record rebases onto cloud history without
   a.stage(revision('Cloud results'));b.stage(revision('Local results'));await a.sync();await b.sync();b.resolve(r.id,'local');
   const rebased=b.workspace().records[0];assert.equal(rebased.values.tests,'Local results');assert.equal(rebased.revision,3);assert.equal(rebased.history.at(-1).values.tests,'Cloud results');await b.sync();assert.equal(s.rows.get(r.id).payload.values.tests,'Local results');
 });
+test('permission-filtered sync hides inaccessible records while retaining offline recovery data; regrant restores visibility',async()=>{
+ const s=server(),a=engine(s);a.stage(site());const r=record('pat');a.stage(r);await a.sync();
+ const all=s.list.bind(s);s.list=async()=>[];await a.sync();assert.equal(a.properties().length,0);assert.equal(a.workspace().records.length,0);assert(a.read().docs[r.id].local);assert.throws(()=>a.stage(r),{code:'forbidden'});
+ s.list=all;await a.sync();assert.equal(a.properties().length,1);assert.equal(a.workspace().records.length,1);
+});

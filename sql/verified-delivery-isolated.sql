@@ -108,7 +108,7 @@ language plpgsql security definer set search_path='' as $$declare r paramount_sy
  insert into paramount_sync.issue_events(workspace_id,issue_id,request_id,event,evidence) values(r.workspace_id,i.id,r.id,'signed',jsonb_build_object('digest',i.digest,'consent',p_consent,'name',trim(p_name),'verified_email',r.recipient,'verified_at',r.verified_at,'identity_assurance','Mailbox access verified by one-time email code; name and authority self-declared'));
  receipt:=public.paramount_signature_read_verified(p_token,p_proof);
  insert into paramount_sync.mail_outbox(workspace_id,dedupe,kind,request_id,recipient,body,expires_at)
- values(r.workspace_id,'receipt:'||r.id,'receipt',r.id,r.recipient,jsonb_build_object('subject','Paramount acknowledgement receipt','text','Your acknowledgement was recorded. Issue: '||i.id||E'\nDigest: '||i.digest||E'\nSigned at: '||(receipt->>'signed_at')||E'\nName: '||trim(p_name)||E'\nConsent: '||p_consent),clock_timestamp()+interval '23 hours') on conflict(dedupe) do nothing;
+ values(r.workspace_id,'receipt:'||r.id,'receipt',r.id,r.recipient,jsonb_build_object('subject','Paramount acknowledgement receipt','evidence',receipt,'text','Your acknowledgement was recorded. Issue: '||i.id||E'\nDigest: '||i.digest||E'\nSigned at: '||(receipt->>'signed_at')||E'\nName: '||trim(p_name)||E'\nConsent: '||p_consent),clock_timestamp()+interval '23 hours') on conflict(dedupe) do nothing;
  return receipt;
 end$$;
 -- Close legacy anonymous/staff bearer-only read/accept and internal-invite bypasses.
@@ -141,32 +141,44 @@ create function public.paramount_mail_claim() returns jsonb
 language plpgsql security definer set search_path='' as $$declare m paramount_sync.mail_outbox;begin
  update paramount_sync.mail_outbox set status='failed',body='{}' where status in ('queued','leased') and (expires_at<=clock_timestamp() or attempts>=5 and coalesce(lease_until,'-infinity')<=clock_timestamp() or first_attempt<=clock_timestamp()-interval '23 hours');
  -- Invalidate changed schedules, disabled subscriptions and revoked/expired links before delivery.
- update paramount_sync.mail_outbox m set status='cancelled',body='{}' where m.status in ('queued','leased') and (
- (m.kind in ('invitation','verification') and not exists(select 1 from paramount_sync.signature_requests r where r.id=m.request_id and r.revoked_at is null and (m.kind='verification' or r.signed_at is null) and r.expires_at>clock_timestamp())) or
- (m.kind='reminder' and not exists(select 1 from paramount_sync.reminder_subscriptions s join paramount_sync.documents d on d.workspace_id=s.workspace_id and d.id=s.document_id where s.workspace_id=m.workspace_id and s.document_id=m.document_id and s.recipient=m.recipient and s.active and paramount_sync.reminder_date(case when d.kind='visit' then d.payload->'values'->>'date' else d.payload->'values'->>'next' end)=m.due and coalesce(d.payload->'values'->>'status','') not in ('Completed','Cancelled','Closed','Closed after verification'))));
+ update paramount_sync.mail_outbox queued_mail set status='cancelled',body='{}' where queued_mail.status in ('queued','leased') and (
+ (queued_mail.kind in ('invitation','verification') and not exists(select 1 from paramount_sync.signature_requests r where r.id=queued_mail.request_id and r.revoked_at is null and ((queued_mail.kind='verification' and r.code_hash is not null and r.code_expires>clock_timestamp() and queued_mail.created_at>=r.code_created) or (queued_mail.kind='invitation' and r.signed_at is null)) and r.expires_at>clock_timestamp())) or
+ (queued_mail.kind='reminder' and not exists(select 1 from paramount_sync.reminder_subscriptions s join paramount_sync.documents d on d.workspace_id=s.workspace_id and d.id=s.document_id where s.workspace_id=queued_mail.workspace_id and s.document_id=queued_mail.document_id and s.recipient=queued_mail.recipient and s.active and paramount_sync.reminder_date(case when d.kind='visit' then d.payload->'values'->>'date' else d.payload->'values'->>'next' end)=queued_mail.due and coalesce(d.payload->'values'->>'status','') not in ('Completed','Cancelled','Closed','Closed after verification'))));
  select * into m from paramount_sync.mail_outbox where (status='queued' or status='leased' and lease_until<=clock_timestamp()) and next_at<=clock_timestamp() order by created_at,id for update skip locked limit 1;
  if m.id is null then return null;end if;
  update paramount_sync.mail_outbox set status='leased',lease=gen_random_uuid(),lease_until=clock_timestamp()+interval '2 minutes',attempts=attempts+1,first_attempt=coalesce(first_attempt,clock_timestamp()) where id=m.id returning * into m;
  insert into paramount_sync.delivery_events(mail_id,event,evidence) values(m.id,'claimed',jsonb_build_object('attempt',m.attempts));
  return to_jsonb(m);
 end$$;
+-- Persist the signed PDF before sending, so retries send byte-identical attachments.
+create function public.paramount_mail_artifact(p_id uuid,p_lease uuid,p_attachment jsonb) returns jsonb
+language plpgsql security definer set search_path='' as $$declare m paramount_sync.mail_outbox;begin
+ select * into m from paramount_sync.mail_outbox where id=p_id for update;
+ if m.id is null or m.kind<>'receipt' or m.status<>'leased' or m.lease is distinct from p_lease or m.lease_until<=clock_timestamp() then return null;end if;
+ if m.body ? 'attachment' then return m.body;end if;
+ if jsonb_typeof(p_attachment) is distinct from 'object' or jsonb_typeof(p_attachment->'filename') is distinct from 'string' or jsonb_typeof(p_attachment->'content') is distinct from 'string' or jsonb_typeof(p_attachment->'sha256') is distinct from 'string' or jsonb_typeof(p_attachment->'certificate_sha256') is distinct from 'string' or p_attachment->>'filename'!~'^paramount-acknowledged-[0-9a-f-]+\.pdf$' or length(p_attachment->>'content') not between 100 and 5000000 or p_attachment->>'sha256'!~'^[0-9a-f]{64}$' or p_attachment->>'certificate_sha256'!~'^[0-9a-f]{64}$' or encode(sha256(decode(p_attachment->>'content','base64')),'hex') is distinct from p_attachment->>'sha256' then raise check_violation using message='Invalid signed PDF artifact';end if;
+ update paramount_sync.mail_outbox set body=body||jsonb_build_object('attachment',p_attachment) where id=m.id returning body into m.body;
+ insert into paramount_sync.delivery_events(mail_id,event,evidence) values(m.id,'pdf_signed',p_attachment-'content');
+ return m.body;
+end$$;
 create function public.paramount_mail_finish(p_id uuid,p_lease uuid,p_outcome text,p_provider text default null) returns boolean
 language plpgsql security definer set search_path='' as $$declare m paramount_sync.mail_outbox;begin
  select * into m from paramount_sync.mail_outbox where id=p_id for update;
  if m.id is null or m.status<>'leased' or m.lease is distinct from p_lease or m.lease_until<=clock_timestamp() then return false;end if;
+ if p_outcome='accepted' and m.kind='receipt' and not (m.body ? 'attachment') then raise check_violation using message='Signed PDF artifact required before receipt delivery';end if;
  if p_outcome not in ('accepted','retry','permanent') or p_outcome='accepted' and (p_provider is null or length(p_provider)>200) then raise check_violation using message='Invalid delivery outcome';end if;
  update paramount_sync.mail_outbox set status=case when p_outcome='accepted' then 'sent' when p_outcome='permanent' or attempts>=5 then 'failed' else 'queued' end,
  body=case when p_outcome='accepted' or p_outcome='permanent' or attempts>=5 then '{}' else body end,
  sent_at=case when p_outcome='accepted' then clock_timestamp() end,provider_id=case when p_outcome='accepted' then p_provider end,
  next_at=clock_timestamp()+make_interval(secs=>least(3600,60*power(2,attempts)::integer)),lease=null,lease_until=null where id=m.id;
- insert into paramount_sync.delivery_events(mail_id,event,evidence) values(m.id,p_outcome,jsonb_build_object('provider_id',case when p_outcome='accepted' then p_provider end,'attempt',m.attempts));
- if m.request_id is not null then insert into paramount_sync.issue_events(workspace_id,issue_id,request_id,event,evidence) select r.workspace_id,r.issue_id,r.id,case when p_outcome='accepted' then 'email_accepted' else 'email_failed' end,jsonb_build_object('mail',m.id,'kind',m.kind,'provider_id',case when p_outcome='accepted' then p_provider end,'outcome',p_outcome) from paramount_sync.signature_requests r where r.id=m.request_id;end if;
+ insert into paramount_sync.delivery_events(mail_id,event,evidence) values(m.id,p_outcome,jsonb_build_object('provider_id',case when p_outcome='accepted' then p_provider end,'attempt',m.attempts,'pdf_sha256',m.body->'attachment'->>'sha256','certificate_sha256',m.body->'attachment'->>'certificate_sha256'));
+ if m.request_id is not null then insert into paramount_sync.issue_events(workspace_id,issue_id,request_id,event,evidence) select r.workspace_id,r.issue_id,r.id,case when p_outcome='accepted' then 'email_accepted' else 'email_failed' end,jsonb_build_object('mail',m.id,'kind',m.kind,'provider_id',case when p_outcome='accepted' then p_provider end,'outcome',p_outcome,'pdf_sha256',m.body->'attachment'->>'sha256','certificate_sha256',m.body->'attachment'->>'certificate_sha256') from paramount_sync.signature_requests r where r.id=m.request_id;end if;
  return true;
 end$$;
 -- service_role is a server-only worker credential; it never appears in browser config.
 revoke all on all functions in schema paramount_sync from public,anon,authenticated;
-revoke all on function public.paramount_signature_challenge(text),public.paramount_signature_verify(text,text),public.paramount_signature_read_verified(text,text),public.paramount_signature_accept_verified(text,text,text,text,text),public.paramount_reminder_set(uuid,uuid,text,boolean),public.paramount_mail_schedule(),public.paramount_mail_claim(),public.paramount_mail_finish(uuid,uuid,text,text) from public,anon,authenticated;
+revoke all on function public.paramount_signature_challenge(text),public.paramount_signature_verify(text,text),public.paramount_signature_read_verified(text,text),public.paramount_signature_accept_verified(text,text,text,text,text),public.paramount_reminder_set(uuid,uuid,text,boolean),public.paramount_mail_schedule(),public.paramount_mail_claim(),public.paramount_mail_artifact(uuid,uuid,jsonb),public.paramount_mail_finish(uuid,uuid,text,text) from public,anon,authenticated;
 grant execute on function public.paramount_signature_challenge(text),public.paramount_signature_verify(text,text),public.paramount_signature_read_verified(text,text),public.paramount_signature_accept_verified(text,text,text,text,text) to anon,authenticated;
 grant execute on function public.paramount_reminder_set(uuid,uuid,text,boolean) to authenticated;
-grant execute on function public.paramount_mail_schedule(),public.paramount_mail_claim(),public.paramount_mail_finish(uuid,uuid,text,text) to service_role;
+grant execute on function public.paramount_mail_schedule(),public.paramount_mail_claim(),public.paramount_mail_artifact(uuid,uuid,jsonb),public.paramount_mail_finish(uuid,uuid,text,text) to service_role;
 commit;
