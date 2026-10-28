@@ -41,13 +41,15 @@ create function paramount_sync.email_valid(email text) returns boolean language 
  select email is not null and length(email) between 3 and 254 and email~'^[A-Za-z0-9.!#$%&*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$'
 $$;
 create or replace function public.paramount_signature_invite(p_workspace uuid,p_issue uuid,p_recipient text,p_hours integer default 72) returns jsonb
-language plpgsql security definer set search_path='' as $$declare d uuid;r jsonb;origin text;email text:=lower(trim(p_recipient));begin
+language plpgsql security definer set search_path='' as $$declare d uuid;r jsonb;origin text;email text:=lower(trim(p_recipient));existing paramount_sync.signature_requests;begin
  perform 1 from paramount_sync.workspaces where id=p_workspace for update;
  select document_id into d from paramount_sync.issues where workspace_id=p_workspace and id=p_issue;
  if d is null then raise insufficient_privilege;end if;
  perform paramount_sync.require_access(p_workspace,d,'issue');
  select customer_origin into origin from paramount_sync.delivery_config where workspace_id=p_workspace;
- if origin is null or not paramount_sync.email_valid(email) then raise check_violation using message='Approved customer origin and valid recipient email required';end if;
+ if origin is null or not paramount_sync.email_valid(email) or p_hours is null or p_hours not between 1 and 168 then raise check_violation using message='Approved customer origin and valid recipient email required';end if;
+ select * into existing from paramount_sync.signature_requests where workspace_id=p_workspace and issue_id=p_issue and recipient=email and revoked_at is null and expires_at>clock_timestamp() order by created_at desc limit 1;
+ if existing.id is not null then return jsonb_build_object('request',existing.id,'expires_at',existing.expires_at,'digest',(select digest from paramount_sync.issues where workspace_id=p_workspace and id=p_issue),'delivery',coalesce((select status from paramount_sync.mail_outbox where dedupe='invite:'||existing.id),'queued'));end if;
  r:=public.paramount_signature_invite_internal(p_workspace,p_issue,email,p_hours);
  insert into paramount_sync.mail_outbox(workspace_id,dedupe,kind,request_id,recipient,body,expires_at)
  values(p_workspace,'invite:'||(r->>'request'),'invitation',(r->>'request')::uuid,email,

@@ -50,6 +50,10 @@ assert quote_issue['snapshot']['kind']=='quote'
 sql(f"insert into paramount_sync.delivery_config values({literal(w)},'https://isolated.example.invalid')")
 req=rpc(users[0],'paramount_signature_invite',[literal(w),literal(quote_issue['id']),literal('fictional@example.invalid'),'72'])
 assert req['delivery']=='queued' and 'token' not in req
+with concurrent.futures.ThreadPoolExecutor() as pool:
+    invitations=list(pool.map(lambda _:rpc(users[0],'paramount_signature_invite',[literal(w),literal(quote_issue['id']),literal('fictional@example.invalid'),'72']),range(2)))
+assert all(i['request']==req['request'] for i in invitations)
+assert sql("select count(*) from paramount_sync.mail_outbox where kind='invitation'")=='1'
 mail=json.loads(sql("select to_jsonb(m) from paramount_sync.mail_outbox m where kind='invitation'"))
 token=mail['body']['text'].split('#token=')[1]
 assert len(token)==64
