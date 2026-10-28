@@ -15,7 +15,7 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+new 
  for(const v of [{width:320,height:568},{width:360,height:800},{width:390,height:844},{width:412,height:915},{width:844,height:390}]){
   await p.setViewportSize(v);
   for(const name of ['Dashboard','Properties','Service Records','PAT Testing','Emergency Lighting','Extinguishers','Installation Forms','Quotes','Invoices','Planner','Call-outs','Office','Drawing Studio','Equipment Library','Property History','Equipment Registers','Documents','Record Backup']){
-   await p.locator(`[data-tab="${name}"]:visible`).first().click();await p.locator('#view').waitFor();assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${v.width}`);
+   if(name!=='Dashboard'||!await p.locator('.main-hero').isVisible())await p.locator(`[data-tab="${name}"]:visible`).first().click();await p.locator('#view').waitFor();assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${v.width}`);
   }
  }
  results.push('offline navigation fits 320/360/390/412px and landscape');
@@ -24,4 +24,3 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+new 
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS:',results.join('; '));
  }catch(e){console.error(e);process.exitCode=1;results.push(e.stack)}finally{fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/demo-offline-browser.json',JSON.stringify({results,errors,external},null,2));if(ctx)await ctx.close();if(browser)await browser.close();await new Promise(r=>server.close(r))}
 })();
-
