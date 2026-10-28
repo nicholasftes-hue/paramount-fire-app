@@ -11,6 +11,8 @@ sql(f"insert into paramount_sync.staff(workspace_id,user_id,slot,access_role) va
 
 def rpc(user, name, args, ok=True, role='authenticated'):
     result=as_user(user,'select public.'+name+'('+','.join(args)+')',ok,role)
+    if name=='paramount_signature_revoke':
+        return None  # void RPC: psql strips its blank row, leaving the JWT set_config output
     return json.loads(result[-1]) if ok and result and result[-1] else None
 
 def issue(user=users[0], version=2, ok=True):
