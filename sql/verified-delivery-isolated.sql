@@ -45,6 +45,7 @@ language plpgsql security definer set search_path='' as $$declare d uuid;r jsonb
  perform 1 from paramount_sync.workspaces where id=p_workspace for update;
  select document_id into d from paramount_sync.issues where workspace_id=p_workspace and id=p_issue;
  if d is null then raise insufficient_privilege;end if;
+ if exists(select 1 from paramount_sync.issues where workspace_id=p_workspace and supersedes=p_issue) then raise check_violation using message='Current issue required';end if;
  perform paramount_sync.require_access(p_workspace,d,'issue');
  select customer_origin into origin from paramount_sync.delivery_config where workspace_id=p_workspace;
  if origin is null or not paramount_sync.email_valid(email) or p_hours is null or p_hours not between 1 and 168 then raise check_violation using message='Approved customer origin and valid recipient email required';end if;

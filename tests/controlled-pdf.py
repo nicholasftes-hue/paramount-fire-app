@@ -5,6 +5,7 @@ for kind in ['service','pat','lighting','quote']:
     text='\n'.join(page.extract_text() for page in reader.pages)
     for expected in ['Fictional signed site','roof access','fictional@example.invalid','Fictional Customer','SHA-256','fixture-request','Mailbox verified','one-time email code','not a cryptographic PDF signature']:
         assert expected in text,(kind,expected)
+    if kind=='quote': assert 'Total: £24.00' in text
     assert 'Ω' in text and '£' in text
     assert 'DRAFT - NOT ISSUED' not in text
 print('PASS: four controlled evidence PDFs independently parsed; frozen content, scope, Unicode, verification, consent and signature audit evidence retained')

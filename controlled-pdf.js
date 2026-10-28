@@ -1,6 +1,26 @@
 /* Evidence PDF: exact frozen issue and verified acknowledgement; no private key or bearer token. */
 (function(root,factory){if(typeof module==='object')module.exports=factory;else root.ParamountEvidencePdf=factory(root.ParamountPdfFont)})(globalThis,font=>{
  'use strict';
+  function parseMoney(value) {
+    if(!/^\d+(?:\.\d{1,2})?$/.test(String(value).trim()))throw Error('Use a non-negative price with at most two decimal places.');
+    const [whole,fraction='']=String(value).trim().split('.');
+    const n=Number(whole)*100+Number(fraction.padEnd(2,'0'));
+    if(!Number.isSafeInteger(n)||n>100000000)throw Error('Price exceeds the supported £1,000,000 limit.');return n;
+  }
+  function totals(values) {
+    const lines=String(values.lines||'').trim().split('\n').filter(x=>x.trim()).map(line=>{
+      const parts=line.split('|').map(x=>x.trim());
+      if(parts.length!==3||!parts[0]||!/^\d+$/.test(parts[1])||Number(parts[1])<1||Number(parts[1])>10000)throw Error('Each line needs description | whole quantity (1–10000) | price.');
+      const unit=parseMoney(parts[2]),quantity=Number(parts[1]),amount=unit*quantity;
+      if(!Number.isSafeInteger(amount))throw Error('Line total is too large.');return {description:parts[0],quantity,unit,amount};
+    });
+    if(!lines.length)throw Error('Enter at least one line item.');
+    const vat=String(values.vat??'');if(!/^\d+(?:\.\d{1,2})?$/.test(vat)||Number(vat)>100)throw Error('Enter a VAT percentage from 0 to 100 with at most two decimals.');
+    const subtotal=lines.reduce((n,l)=>n+l.amount,0);if(!Number.isSafeInteger(subtotal)||subtotal>10000000000)throw Error('Document total exceeds the supported limit.');
+    const tax=Math.round(subtotal*Math.round(Number(vat)*100)/10000);return {lines,subtotal,tax,total:subtotal+tax};
+  }
+  const pounds = p => '£'+(p/100).toFixed(2);
+
  async function create(data){
   if(!data||typeof data.canonical_document!=='string'||!/^[0-9a-f]{64}$/.test(data.digest||''))throw Error('Frozen issue required');
   const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(data.canonical_document));
@@ -8,7 +28,7 @@
   const f=JSON.parse(data.canonical_document);
   if(!['service','pat','lighting','quote'].includes(f.kind)||!f.payload?.values||data.issue==null)throw Error('Unsupported controlled issue');
   if(data.signed_at&&(!data.verified_at||!data.verified_email||!data.signer_name||!data.consent||!data.request))throw Error('Verified acknowledgement evidence required');
-  const lines=[String(f.kind).toUpperCase()+' — CONTROLLED ISSUE', 'Issue: '+data.issue,'Issue sequence: '+data.sequence,'Document: '+f.document,'Workspace: '+f.workspace,'Source version: '+f.version,'Approved at: '+data.approved_at,'Approved scope: '+f.scope,'SHA-256 canonical document: '+data.digest,'', 'FROZEN SITE',...Object.entries(f.payload.siteSnapshot||{}).map(([k,v])=>k+': '+v),'','FROZEN RECORD',...Object.entries(f.payload.values).map(([k,v])=>k+': '+v),'','ACKNOWLEDGEMENT EVIDENCE',...(data.signed_at?['Request: '+data.request,'Signed at (server): '+data.signed_at,'Signer name (self-declared): '+data.signer_name,'Verified mailbox: '+data.verified_email,'Mailbox verified at (server): '+data.verified_at,'Consent: '+data.consent,'Identity assurance: mailbox access via one-time email code; name and authority self-declared.']:['No customer acknowledgement recorded.']),'','This is evidence of the stated issue and acknowledgement. The document digest binds the frozen record; it is not a cryptographic PDF signature or statutory compliance certification. Verify the receipt against the issuer audit.'];
+  const lines=[String(f.kind).toUpperCase()+' — CONTROLLED ISSUE', 'Issue: '+data.issue,'Issue sequence: '+data.sequence,'Document: '+f.document,'Workspace: '+f.workspace,'Source version: '+f.version,'Approved at: '+data.approved_at,'Approved scope: '+f.scope,'SHA-256 canonical document: '+data.digest,'', 'FROZEN SITE',...Object.entries(f.payload.siteSnapshot||{}).map(([k,v])=>k+': '+v),'','FROZEN RECORD',...Object.entries(f.payload.values).map(([k,v])=>k+': '+v),...(f.kind==='quote'?(()=>{const t=totals(f.payload.values);return ['','Subtotal: '+pounds(t.subtotal),'VAT: '+pounds(t.tax),'Total: '+pounds(t.total)]})():[]),'','ACKNOWLEDGEMENT EVIDENCE',...(data.signed_at?['Request: '+data.request,'Signed at (server): '+data.signed_at,'Signer name (self-declared): '+data.signer_name,'Verified mailbox: '+data.verified_email,'Mailbox verified at (server): '+data.verified_at,'Consent: '+data.consent,'Identity assurance: mailbox access via one-time email code; name and authority self-declared.']:['No customer acknowledgement recorded.']),'','This is evidence of the stated issue and acknowledgement. The document digest binds the frozen record; it is not a cryptographic PDF signature or statutory compliance certification. Verify the receipt against the issuer audit.'];
   return renderPdf([{kind:f.kind,revision:f.payload.revision,lines}]);
  }
   function renderPdf(records) {

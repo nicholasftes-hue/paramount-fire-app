@@ -59,7 +59,7 @@ end$$;
 -- Preserve all original engineering validation and revision/CAS rules.
 alter function paramount_sync.validate_payload(text,uuid,uuid,jsonb) rename to validate_engineering;
 create function paramount_sync.validate_payload(k text,ident uuid,prop uuid,p jsonb) returns void
-language plpgsql set search_path='' as $$declare h jsonb;v jsonb;f text;required text[];line text;parts text[];begin
+language plpgsql set search_path='' as $$declare h jsonb;v jsonb;f text;required text[];line text;parts text[];subtotal numeric;begin
  if k in ('property','service','pat','lighting') then perform paramount_sync.validate_engineering(k,ident,prop,p);return;end if;
  if k not in ('extinguisher','installation','quote','invoice','visit','callout','enquiry','drawing','equipment') or p is null or jsonb_typeof(p)<>'object' or octet_length(p::text)>500000 or p->>'id' is distinct from ident::text or p->>'kind' is distinct from k or prop is null or jsonb_typeof(p->'history') is distinct from 'array' or jsonb_typeof(p->'values') is distinct from 'object' or coalesce(p->>'revision','')!~'^[1-9][0-9]*$' then raise check_violation using message='Invalid shared record';end if;
  for f in select jsonb_object_keys(p) loop
@@ -83,10 +83,12 @@ language plpgsql set search_path='' as $$declare h jsonb;v jsonb;f text;required
   if k in ('quote','invoice') then
    perform (h->>'due')::date;
    if (h->>'due')::date<(h->>'date')::date or h->>'vat'!~'^\d+(\.\d{1,2})?$' or (h->>'vat')::numeric not between 0 and 100 then raise check_violation using message='Invalid commercial date or VAT';end if;
+   subtotal:=0;
    for line in select regexp_split_to_table(h->>'lines',E'\n') loop
     parts:=string_to_array(line,'|');
     if cardinality(parts)<>3 or trim(parts[1])='' or trim(parts[2])!~'^\d+$' or trim(parts[3])!~'^\d+(\.\d{1,2})?$' then raise check_violation using message='Invalid commercial lines';end if;
-    if trim(parts[2])::numeric not between 1 and 10000 then raise check_violation using message='Invalid quantity';end if;
+    subtotal:=subtotal+trim(parts[2])::numeric*trim(parts[3])::numeric*100;
+    if trim(parts[3])::numeric>1000000 or subtotal>10000000000 or trim(parts[2])::numeric not between 1 and 10000 then raise check_violation using message='Invalid quantity';end if;
    end loop;
   end if;
   if k='visit' and (h->>'time'!~'^([01]\d|2[0-3]):[0-5]\d$' or h->>'minutes'!~'^\d+$' or (h->>'minutes')::numeric not between 1 and 1440 or h->>'status' not in ('Planned','Confirmed','Completed','Cancelled')) then raise check_violation using message='Invalid visit';end if;
