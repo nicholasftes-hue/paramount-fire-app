@@ -9,7 +9,7 @@
   cloudSession=null;cloudRequest=async()=>{throw Error('Original cloud access is disabled in isolated testing.')};
   cloudAuthorizedRequest=cloudRequest;save=()=>{throw Error('Legacy writes are disabled in isolated testing.')};
   db={properties:[],services:[],inventory:[],pat:[],quotes:[],lighting:[],jobs:[],settings:{}};
-  const allowed=['Properties','Service Records','PAT Testing','Emergency Lighting','Property History'];
+  const allowed=['Properties','Service Records','PAT Testing','Emergency Lighting','Extinguishers','Installation Forms','Quotes','Invoices','Planner','Call-outs','Office','Drawing Studio','Equipment Library','Property History','Equipment Registers'];
   sections.splice(0,sections.length,...allowed);tab='Properties';
   const panel=document.createElement('section');panel.className='panel';panel.id='team-sync';document.querySelector('main').prepend(panel);
   const css=document.createElement('style');css.textContent='#academy,.introbar,.main-app details.panel{display:none}#team-sync input{max-width:100%;box-sizing:border-box}#team-status{white-space:pre-wrap}';document.head.append(css);
@@ -18,7 +18,7 @@
   const redraw=()=>{window.ParamountMainApp?.reload();show()};
   function status(text){const el=document.getElementById('team-status');if(el)el.textContent=text}
   function show(){
-    const docs=engine?Object.values(engine.read().docs):[],conflicts=docs.filter(e=>e.remote),pending=docs.filter(e=>e.dirty||e.pending).length;
+    const docs=engine?Object.values(engine.read().docs).filter(e=>!e.unavailable):[],conflicts=docs.filter(e=>e.remote),pending=docs.filter(e=>e.dirty||e.pending).length;
     panel.innerHTML=`<h2>Isolated staff synchronisation test</h2><p>Fictional test records only. Configuration and sign-in are separate from the original app. Offline copies remain on this device after sign-out.</p>
       <label>Load isolated configuration JSON<input id="team-config" type="file" accept="application/json"></label>
       <p>${esc(settings?'Test endpoint configured':'No test endpoint configured')}${user?' · Staff '+esc(user):''}</p>
@@ -27,11 +27,11 @@
       <p>${pending} queued · ${conflicts.length} conflicts. Changes save locally first. Sync runs every 15 seconds while signed in. Review conflicts before choosing a version.</p>
       ${conflicts.map(e=>`<details><summary>Conflict: ${esc(e.local.kind)} ${esc(e.local.id)}</summary><h3>Local copy</h3><pre>${esc(JSON.stringify(e.local.payload,null,2))}</pre><h3>Cloud copy</h3><pre>${esc(JSON.stringify(e.remote.payload,null,2))}</pre><button data-team-resolve="${esc(e.local.id)}" data-choice="cloud">Use cloud copy</button> <button data-team-resolve="${esc(e.local.id)}" data-choice="local">Keep local and retry against reviewed cloud version</button></details>`).join('')}
       <details><summary>Controlled issue and customer acknowledgement — isolated acceptance</summary>
-      <p>Requires the additive isolated controlled-issue migration and an approver role assigned by the test-project owner. Draft downloads remain drafts. Issue snapshots are immutable; acknowledgements are self-declared bearer-link receipts.</p>
+      <p>Requires the additive isolated controlled-issue migration and an approver role assigned by the test-project owner. Draft downloads remain drafts. Issue snapshots are immutable; acknowledgements require an emailed one-time code; name and authority remain self-declared.</p>
       <form id="team-issue"><label>Synchronised engineering record<select name="document" required><option value="">Choose record…</option>${docs.filter(e=>e.local.kind!=='property'&&!e.dirty&&!e.pending&&!e.remote).map(e=>`<option value="${esc(e.local.id)}">${esc(e.local.kind)} · ${esc(e.local.id)} · version ${e.base}</option>`).join('')}</select></label>
       <label>Competent approval: scope and limitations<textarea name="note" required minlength="10" maxlength="2000"></textarea></label><button>Issue frozen record revision</button><button type="button" id="team-issue-history">Read issue audit</button></form>
-      <form id="team-invite"><label>Issue ID<input name="issue" required value="${esc(issued||'')}"></label><label>Intended recipient (not identity verification)<input name="recipient" required maxlength="254"></label><label>Link expiry (hours)<input name="hours" type="number" min="1" max="168" value="72" required></label><button>Create single-use acknowledgement link</button></form>
-      <p id="team-invitation"></p><form id="team-revoke"><label>Unsigned request ID<input name="request" required></label><button>Revoke link</button></form><pre id="team-audit"></pre></details>
+      <form id="team-invite"><label>Issue ID<input name="issue" required value="${esc(issued||'')}"></label><label>Intended recipient email<input name="recipient" type="email" required maxlength="254"></label><label>Link expiry (hours)<input name="hours" type="number" min="1" max="168" value="72" required></label><button>Create single-use acknowledgement link</button></form>
+      <p id="team-invitation"></p><form id="team-permissions"><h3>Record access policy (workspace admin)</h3><label>Record / property UUID<input name="document" required></label><label><input name="restricted" type="checkbox">Restrict to the listed staff; property restrictions also apply to its records</label><label>Grants JSON: [{&quot;user&quot;:&quot;existing-staff-UUID&quot;,&quot;permission&quot;:&quot;read/edit/issue&quot;}]<textarea name="grants" required>[]</textarea></label><button>Save audited access policy</button></form><form id="team-reminder"><h3>Unattended email reminders</h3><label>Record UUID<input name="document" required></label><label>Previously acknowledged, mailbox-verified email<input name="email" type="email" required></label><label><input name="active" type="checkbox" checked>Enable 30/7-day emails</label><button>Save reminder subscription</button></form><form id="team-revoke"><label>Unsigned request ID<input name="request" required></label><button>Revoke link</button></form><pre id="team-audit"></pre></details>
       <p id="team-status" role="status"></p>`;
     document.getElementById('view').hidden=!engine;document.getElementById('tabs').hidden=!engine;
     if(engine&&!exclusive)status('This workspace is open in another tab. Close it there, then reopen here.');
@@ -75,11 +75,13 @@
     return transport.request('/rest/v1/rpc/'+name,{p_workspace:settings.workspace,...args});
   };
   document.addEventListener('submit',async e=>{
-    if(!['team-issue','team-invite','team-revoke'].includes(e.target.id))return;
+    if(!['team-issue','team-invite','team-revoke','team-permissions','team-reminder'].includes(e.target.id))return;
     e.preventDefault();if(working||authBusy)return;working=true;
     try{
       const form=e.target;
-      if(form.id==='team-issue'){
+      if(form.id==='team-permissions'){await issueRpc('paramount_record_access',{p_document:form.elements.document.value,p_restricted:form.elements.restricted.checked,p_grants:JSON.parse(form.elements.grants.value)});status('Access policy saved and audited. Offline copies and prior exports require the workspace retention policy.');}
+      else if(form.id==='team-reminder'){await issueRpc('paramount_reminder_set',{p_document:form.elements.document.value,p_email:form.elements.email.value,p_active:form.elements.active.checked});status('Subscription saved. Emails require the isolated unattended worker and provider.');}
+      else if(form.id==='team-issue'){
         const id=form.elements.document.value,entry=must().read().docs[id];
         if(!entry||entry.dirty||entry.pending||entry.remote)throw Error('Sync and review the current version first.');
         const result=await issueRpc('paramount_issue',{p_document:id,p_expected:entry.base,p_note:form.elements.note.value});
@@ -87,9 +89,8 @@
         document.getElementById('team-audit').textContent=JSON.stringify(result,null,2);status('Frozen revision issued in the isolated test register. Draft downloads are unchanged.');
       }else if(form.id==='team-invite'){
         const result=await issueRpc('paramount_signature_invite',{p_issue:form.elements.issue.value,p_recipient:form.elements.recipient.value,p_hours:Number(form.elements.hours.value)});
-        const url=new URL('signature-test.html',location.href);url.hash=new URLSearchParams({token:result.token}).toString();
-        const target=document.getElementById('team-invitation');target.replaceChildren();const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Open isolated customer acknowledgement';target.append(a,document.createTextNode(' · request '+result.request+' · expires '+result.expires_at+'. Copy link only to the intended test recipient. It is cleared on refresh.'));
-        document.querySelector('#team-revoke [name=request]').value=result.request;status('Invitation created; no email or message has been sent.');
+        const target=document.getElementById('team-invitation');target.textContent='Invitation queued to the intended mailbox · request '+result.request+' · expires '+result.expires_at+'. Delivery requires the isolated worker and email provider.';
+        document.querySelector('#team-revoke [name=request]').value=result.request;status('Invitation queued. Check delivery audit; do not recreate to retry delivery.');
       }else{await issueRpc('paramount_signature_revoke',{p_request:form.elements.request.value});document.getElementById('team-invitation').replaceChildren();status('Unsigned link revoked. Audit retained.');}
     }catch(error){status('Controlled issue unavailable or rejected. Check test migration, role, current revision and audit before retrying. '+error.message)}finally{working=false}
   });

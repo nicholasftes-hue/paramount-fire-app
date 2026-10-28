@@ -42,6 +42,7 @@ jobs:
       - run: python tests/populated-documents.py
       - run: python tests/templates.py
       - run: python tests/service-pdf.py
+      - run: python tests/controlled-pdf.py
       - run: python tests/academy-browser.py --browser chromium
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome

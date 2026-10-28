@@ -183,3 +183,12 @@ test('map handoff uses appointment order, isolates engineer/day and encodes addr
  for(const visits of [[r('a','P1','09:00')],[r('a','P1','09:00'),r('b','P2','10:00','B')],[r('a','P1','09:00'),r('b','P2','10:00','A','2026-12-02')],[r('a','missing','09:00'),r('b','P2','10:00')]])assert.throws(()=>api.routeLink(visits,sites));
  assert.throws(()=>api.routeLink(Array.from({length:11},(_,i)=>r(String(i),'P1','09:00')),sites));
 });
+test('exact driving optimisation uses asymmetric edges, retains all stops, reports appointment conflicts and rejects incomplete/unreachable matrices',()=>{
+ const {api}=harness();const rows=['a','b','c','d'].map((id,i)=>({id,kind:'visit',values:{...visit,time:['09:00','10:00','11:00','12:00'][i],minutes:'30'}}));
+ const m={ids:['a','b','c','d'],seconds:[[0,1000,10,50],[20,0,1000,10],[20,10,0,1000],[20,20,20,0]]};
+ const r=api.optimiseRoute(rows,m,'a','d');assert.equal(r.visits.map(v=>v.id).join(','),'a,c,b,d');assert.equal(r.seconds,30);assert(r.conflicts.includes('b'));
+ assert.equal(rows[1].values.time,'10:00');assert.throws(()=>api.optimiseRoute(rows,{...m,ids:['a','b','c','c']},'a','d'));
+ assert.throws(()=>api.optimiseRoute(rows,{...m,seconds:m.seconds.map(()=>[null,null,null,null])},'a','d'));
+ assert.throws(()=>api.optimiseRoute(rows,{...m,seconds:[[0,-1],[]]},'a','d'));
+ assert.throws(()=>api.optimiseRoute([{...rows[0],values:{...visit,date:'2026-11-02'}},...rows.slice(1)],m,'a','d'));
+});

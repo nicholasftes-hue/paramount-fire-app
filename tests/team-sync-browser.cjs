@@ -23,7 +23,7 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
       if(url.pathname==='/auth/v1/token')return reply({json:{user:{id:users[n]},access_token:'fictional-'+n}});
       if(denied)return reply({status:403,json:{message:'DO NOT DISPLAY sensitive upstream details'}});
       if(url.pathname.endsWith('/paramount_issue')){assert.equal(p.p_workspace,workspace);assert.equal(p.p_expected,rows.get(p.p_document).version);assert.match(p.p_note,/Fictional competent/);issuedRecord=p.p_document;return reply({json:{id:issueId,digest:'d'.repeat(64)}})}
-      if(url.pathname.endsWith('/paramount_signature_invite')){assert.equal(p.p_issue,issueId);assert.equal(p.p_hours,72);return reply({json:{request:requestId,token:inviteToken,expires_at:'2026-11-01T12:00:00Z'}})}
+      if(url.pathname.endsWith('/paramount_signature_invite')){assert.equal(p.p_issue,issueId);assert.equal(p.p_hours,72);return reply({json:{request:requestId,delivery:'queued',expires_at:'2026-11-01T12:00:00Z'}})}
       if(url.pathname.endsWith('/paramount_signature_revoke')){assert.equal(p.p_request,requestId);revoked=true;return reply({json:null})}
       if(url.pathname.endsWith('/paramount_issue_history')){assert.equal(p.p_document,issuedRecord);return reply({json:{issues:[{id:issueId}],events:[{event:'issued'}]}})}
       if(url.pathname.endsWith('_list'))return reply({json:[...rows.values()]});
@@ -58,8 +58,8 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
   await a.page.locator('#team-sync details:has(#team-issue) summary').click();
   await a.page.locator('#team-issue [name=document]').selectOption(service.id);await a.page.locator('#team-issue [name=note]').fill('Fictional competent review with limitations');await a.page.locator('#team-issue button').first().click();
   await a.page.locator('#team-status').filter({hasText:'Frozen revision issued'}).waitFor();assert.equal(await a.page.locator('#team-invite [name=issue]').inputValue(),issueId);
-  await a.page.locator('#team-invite [name=recipient]').fill('Fictional customer');await a.page.locator('#team-invite button').click();await a.page.locator('#team-invitation a').waitFor();
-  const invitation=new URL(await a.page.locator('#team-invitation a').getAttribute('href'));assert.equal(invitation.search,'');assert.equal(new URLSearchParams(invitation.hash.slice(1)).get('token'),inviteToken);
+  await a.page.locator('#team-invite [name=recipient]').fill('fictional@example.invalid');await a.page.locator('#team-invite button').click();await a.page.locator('#team-invitation').filter({hasText:'queued'}).waitFor();
+  assert.equal(await a.page.locator('#team-invitation a').count(),0);assert(!await a.page.locator('#team-invitation').innerText().then(t=>t.includes(inviteToken)));
   await a.page.locator('#team-revoke button').click();await a.page.locator('#team-status').filter({hasText:'Unsigned link revoked'}).waitFor();assert(revoked);
   await a.page.locator('#team-issue-history').click();await a.page.waitForFunction(()=>document.getElementById('team-audit').textContent.includes('issued'));
 

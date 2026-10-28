@@ -2,7 +2,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object')module.exports=api;else root.ParamountSync=api})(globalThis,()=>{
   'use strict';
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const kinds=['property','service','pat','lighting'];
+  const kinds=['property','service','pat','lighting','extinguisher','installation','quote','invoice','visit','callout','enquiry','drawing','equipment'];
   const copy=x=>JSON.parse(JSON.stringify(x));
   const canonical=x=>x&&typeof x==='object'?(Array.isArray(x)?x.map(canonical):Object.fromEntries(Object.keys(x).sort().map(k=>[k,canonical(x[k])]))):x;
   const equal=(a,b)=>JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
@@ -51,11 +51,11 @@
       try{const s=JSON.parse(raw);if(s.format!==1||!Number.isInteger(s.generation)||!s.docs||Array.isArray(s.docs)||!s.drafts)throw Error();for(const [id,e]of Object.entries(s.docs)){checkDoc(e.local);if(id!==e.local.id||!Number.isInteger(e.base)||e.base<0)throw Error();if(e.remote)checkRow(e.remote);if(e.pending&&(!uuid.test(e.pending.p_operation)||e.pending.p_id!==id))throw Error()}return s}catch{throw new SyncError('storage')}
     }
     transaction(fn){const before=this.storage.getItem(this.key),s=this.read();fn(s);s.generation++;if(this.storage.getItem(this.key)!==before)throw new SyncError('busy');this.storage.setItem(this.key,JSON.stringify(s));return s}
-    stage(d){checkDoc(d);return this.transaction(s=>{const old=s.docs[d.id];if(old&&(old.local.kind!==d.kind||old.local.property_id!==d.property_id))throw new SyncError('invalid');if(old?.remote)throw new SyncError('conflict');s.docs[d.id]={...old,base:old?.base||0,local:copy(d),dirty:true}})}
+    stage(d){checkDoc(d);return this.transaction(s=>{const old=s.docs[d.id];if(old&&(old.local.kind!==d.kind||old.local.property_id!==d.property_id))throw new SyncError('invalid');if(old?.unavailable)throw new SyncError('forbidden');if(old?.remote)throw new SyncError('conflict');s.docs[d.id]={...old,base:old?.base||0,local:copy(d),dirty:true}})}
     // One atomic local write for the record change and its durable outbox.
-    workspace(){const s=this.read();return {version:1,records:Object.values(s.docs).filter(e=>e.local.kind!=='property').map(e=>copy(e.local.payload)),drafts:copy(s.drafts)}}
-    writeWorkspace(data){return this.transaction(s=>{for(const r of data.records){const d={id:r.id,kind:r.kind,property_id:r.values.property,payload:r};checkDoc(d);const old=s.docs[r.id];if(old&&(old.local.kind!==d.kind||old.local.property_id!==d.property_id))throw new SyncError('invalid');if(old&&!equal(old.local,d)&&old.remote)throw new SyncError('conflict');if(!old||!equal(old.local,d))s.docs[r.id]={...old,base:old?.base||0,local:copy(d),dirty:true}}s.drafts=copy(data.drafts)})}
-    properties(){return Object.values(this.read().docs).filter(e=>e.local.kind==='property').map(e=>copy(e.local.payload))}
+    workspace(){const s=this.read();return {version:1,records:Object.values(s.docs).filter(e=>!e.unavailable&&e.local.kind!=='property').map(e=>copy(e.local.payload)),drafts:copy(s.drafts)}}
+    writeWorkspace(data){return this.transaction(s=>{for(const r of data.records){const d={id:r.id,kind:r.kind,property_id:r.values.property,payload:r};checkDoc(d);const old=s.docs[r.id];if(old&&(old.local.kind!==d.kind||old.local.property_id!==d.property_id))throw new SyncError('invalid');if(old?.unavailable)throw new SyncError('forbidden');if(old&&!equal(old.local,d)&&old.remote)throw new SyncError('conflict');if(!old||!equal(old.local,d))s.docs[r.id]={...old,base:old?.base||0,local:copy(d),dirty:true}}s.drafts=copy(data.drafts)})}
+    properties(){return Object.values(this.read().docs).filter(e=>!e.unavailable&&e.local.kind==='property').map(e=>copy(e.local.payload))}
     saveProperty(values,expected){const s=this.read(),old=expected?s.docs[expected.id]?.local.payload:null;if(expected&&!equal(old,expected))throw new SyncError('busy');const p={...old,...values,id:old?.id||this.randomUUID()};this.stage({id:p.id,kind:'property',property_id:null,payload:p});return p}
     resolve(id,choice){
       if(!['cloud','local'].includes(choice))throw new SyncError('invalid');
@@ -66,14 +66,14 @@
       // Caller holds a Web Lock for the entire operation in the browser.
       const rows=await this.transport.list();if(!Array.isArray(rows))throw new SyncError('invalid');
       const ids=new Set();for(const r of rows){checkRow(r);if(ids.has(r.id))throw new SyncError('invalid');ids.add(r.id)}
-      this.transaction(s=>{for(const r of rows){const e=s.docs[r.id];const d={id:r.id,kind:r.kind,property_id:r.property_id,payload:r.payload};
+      this.transaction(s=>{for(const [id,e] of Object.entries(s.docs))if(e.base>0&&!ids.has(id))e.unavailable=true;for(const r of rows){const e=s.docs[r.id];if(e)delete e.unavailable;const d={id:r.id,kind:r.kind,property_id:r.property_id,payload:r.payload};
         if(!e)s.docs[r.id]={local:d,base:r.version,dirty:false};
         else if(r.version>e.base){if(e.dirty||e.pending)e.remote=copy(r);else s.docs[r.id]={local:d,base:r.version,dirty:false}}
       }});
       // Properties precede children; retain the exact operation after a lost response.
       const ordered=Object.keys(this.read().docs).sort((a,b)=>(this.read().docs[a].local.kind==='property'?0:1)-(this.read().docs[b].local.kind==='property'?0:1));
       for(const id of ordered){
-        let e=this.read().docs[id];if(e.remote&&!e.pending)continue;if(!e.dirty&&!e.pending)continue;
+        let e=this.read().docs[id];if(e.unavailable)continue;if(e.remote&&!e.pending)continue;if(!e.dirty&&!e.pending)continue;
         if(e.local.kind!=='property'){const parent=this.read().docs[e.local.property_id];if(!parent||parent.dirty||parent.remote||parent.pending)continue}
         if(!e.pending)this.transaction(s=>{const x=s.docs[id];x.pending={p_id:id,p_kind:x.local.kind,p_property:x.local.property_id,p_payload:copy(x.local.payload),p_expected:x.base,p_operation:this.randomUUID()}});
         e=this.read().docs[id];const pending=copy(e.pending);

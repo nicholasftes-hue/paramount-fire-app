@@ -16,8 +16,8 @@ test('all four original lessons, quizzes and exercises match remote 03faa09',()=
 });
 test('each additional lesson has six complete questions and a supervised exercise',()=>{
   const lessons=lessonData();
-  assert.equal(Object.keys(lessons).length,10);
-  for(const id of ['fire-servicing','cctv-diagnosis','electrical-safety','intruder-basics','lighting-basics','skills-diagnosis']) {
+  assert.equal(Object.keys(lessons).length,22);
+  for(const id of Object.keys(lessons).filter(id=>!Object.keys(require('./original-lessons.json')).includes(id))) {
     const lesson=lessons[id];
     assert.match(lesson.body,/Supervised exercise/);
     assert.match(lesson.body,/Draft/);

@@ -1,7 +1,7 @@
 // Fictional customer capability only. No real service, hosted user or customer contacted.
 const assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright'),{randomUUID,createHash}=require('node:crypto');
-const frozen={scope:'Test scope only',payload:{values:{tests:'<img src=x onerror="window.injected=true">',defects:'Fictional limitation'},siteSnapshot:{name:'Fictional site'}}},canonical=JSON.stringify(frozen);
+const frozen={kind:'service',workspace:'fixture-workspace',document:'fixture-document',version:1,scope:'Test scope only',payload:{values:{tests:'<img src=x onerror="window.injected=true">',defects:'Fictional limitation'},siteSnapshot:{name:'Fictional site'}}},canonical=JSON.stringify(frozen);
 const root=path.resolve(__dirname,'..'),token='a'.repeat(64),digest=createHash('sha256').update(canonical).digest('hex'),errors=[],external=[],requests=[];
 let signed=false,denied=false;
 const server=http.createServer((req,res)=>{const file=path.resolve(root,new URL(req.url,'http://localhost').pathname.slice(1));if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.writeHead(404).end();return}res.setHeader('Content-Type',file.endsWith('.js')?'application/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file))});
@@ -17,23 +17,27 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,new URL(
   if(req.method()==='OPTIONS')return route.fulfill({status:204,headers});
   const body=req.postDataJSON();requests.push({path:url.pathname,body});assert.equal(body.p_token,token);assert(!req.url().includes(token));
   if(denied)return route.fulfill({status:403,headers,json:{message:'SENSITIVE INTERNAL DETAILS'}});
-  if(url.pathname.endsWith('_accept')){assert.equal(body.p_digest,digest);assert.equal(body.p_consent,'Acknowledge fictional scope');assert.equal(body.p_name,'Test Customer');assert(!signed);signed=true}
-  else assert(url.pathname.endsWith('_read'));
-  return route.fulfill({headers,json:{canonical_document:canonical,issue:randomUUID(),sequence:1,digest,kind:'service',values:{tests:'<img src=x onerror="window.injected=true">',defects:'Fictional limitation'},site:{name:'Fictional site'},approved_at:'2026-10-28T12:00:00Z',scope:'Test scope only',consent:'Acknowledge fictional scope',expires_at:'2026-11-01T12:00:00Z',signed_at:signed?'2026-10-28T13:00:00Z':null,signer_name:signed?'Test Customer':null}});
+  if(url.pathname.endsWith('_challenge'))return route.fulfill({headers,json:{status:'queued'}});
+  if(url.pathname.endsWith('_verify')){assert.equal(body.p_code,'1234abcd');return route.fulfill({headers,json:{proof:'b'.repeat(64)}})}
+  assert.equal(body.p_proof,'b'.repeat(64));
+  if(url.pathname.endsWith('_accept_verified')){assert.equal(body.p_digest,digest);assert.equal(body.p_consent,'Acknowledge fictional scope');assert.equal(body.p_name,'Test Customer');assert(!signed);signed=true}
+  else assert(url.pathname.endsWith('_read_verified'));
+  return route.fulfill({headers,json:{request:'fixture-request',verified_email:'fictional@example.invalid',verified_at:'2026-10-28T12:55:00Z',canonical_document:canonical,issue:randomUUID(),sequence:1,digest,kind:'service',values:{tests:'<img src=x onerror="window.injected=true">',defects:'Fictional limitation'},site:{name:'Fictional site'},approved_at:'2026-10-28T12:00:00Z',scope:'Test scope only',consent:'Acknowledge fictional scope',expires_at:'2026-11-01T12:00:00Z',signed_at:signed?'2026-10-28T13:00:00Z':null,signer_name:signed?'Test Customer':null}});
  });
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin+'/signature-test.html#token='+token);
  assert.equal(new URL(page.url()).hash,'');assert.equal(await page.locator('#signature-token').inputValue(),token);assert.equal(requests.length,0);
  const config={mode:'isolated-test',url:'http://127.0.0.1:54321',workspace:randomUUID(),publicKey:'sb_publishable_fixture'};
  await page.locator('#signature-config').setInputFiles({name:'test.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(config))});
- await page.locator('#signature-open button').click();await page.locator('#signature-accept').waitFor();
+ await page.locator('#signature-open button').click();await page.locator('#signature-verify').waitFor();assert.equal(await page.locator('#signature-document').innerText(),'');await page.locator('[name=code]').fill('1234abcd');await page.locator('#signature-verify button').first().click();await page.locator('#signature-accept').waitFor();
  assert.match(await page.locator('#signature-document').innerText(),/<img src=x/);assert.equal(await page.locator('#signature-document img').count(),0);
  assert.match(await page.locator('#signature-consent').innerText(),/fictional scope/);
- await page.locator('[name=signer]').fill('Test Customer');await page.locator('#signature-accept button').click();assert.equal(requests.length,1);
- await page.locator('[name=consent]').check();await page.locator('#signature-accept button').click();await page.locator('#signature-status').filter({hasText:'Acknowledged by Test Customer'}).waitFor();assert.equal(requests.length,2);assert(await page.locator('#signature-accept').isHidden());
+ await page.locator('[name=signer]').fill('Test Customer');await page.locator('#signature-accept button').click();assert.equal(requests.length,3);
+ await page.locator('[name=consent]').check();await page.locator('#signature-accept button').click();await page.locator('#signature-status').filter({hasText:'Acknowledged by Test Customer'}).waitFor();assert.equal(requests.length,4);assert(await page.locator('#signature-accept').isHidden());
  const downloading=page.waitForEvent('download');await page.locator('#signature-receipt').click();const download=await downloading;
  fs.mkdirSync('test-results',{recursive:true});await download.saveAs('test-results/signature-receipt.json');const receipt=JSON.parse(fs.readFileSync('test-results/signature-receipt.json','utf8'));
  assert.equal(receipt.digest,digest);assert.equal(receipt.signer_name,'Test Customer');assert(!JSON.stringify(receipt).includes(token));
+ const pdfDownload=page.waitForEvent('download');await page.locator('#signature-pdf').click();await (await pdfDownload).saveAs('test-results/customer-evidence.pdf');
  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
  await page.locator('#signature-close').click();assert.equal(await page.locator('#signature-document').innerText(),'');assert.equal(await page.locator('#signature-token').inputValue(),'');
  denied=true;await page.locator('#signature-token').fill(token);await page.locator('#signature-open button').click();await page.locator('#signature-status').filter({hasText:'Record unavailable'}).waitFor();assert(!await page.locator('body').innerText().then(t=>t.includes('SENSITIVE')));assert(await page.locator('#signature-accept').isHidden());

@@ -60,7 +60,7 @@
   function nextAsset(asset) {return String(asset).replace(/(\d+)$/,n=>String(Number(n)+1).padStart(n.length,'0'))===asset?'':String(asset).replace(/(\d+)$/,n=>String(Number(n)+1).padStart(n.length,'0'))}
   function quickEntry() {return '<div class="main-wide"><h3>Appliance quick-entry</h3><p>Choose an appliance, enter its unique asset ID and actual test results, then save and continue. Test outcomes are never copied.</p><div class="main-actions">'+['Kettle','Toaster','Router','Washing machine','Fridge / freezer','Other'].map(a=>`<button type="button" data-main-appliance="${a}">${a}</button>`).join('')+'</div></div>'}
   function buildFields(kind) {
-    const site = kind==='enquiry' ? input('Customer name','customer')+input('Email / phone','contact') : prop();
+    const site = kind==='enquiry' ? (team()?prop():'')+input('Customer name','customer')+input('Email / phone','contact') : prop();
     const common=site+input(kind==='visit'?'Visit date':'Record date','date','date',true,today());
     switch(kind) {
       case 'service': return common+input('Engineer','engineer')+input('System / panel make, model and category','system')+input('Service scope / agreed standard and edition','standard')+area('Devices / zones tested and actual results (one per line)','tests',true)+select('Battery inspection','battery',['Satisfactory','Unsatisfactory','Not inspected','Not applicable'])+input('Battery voltage measured (V, optional)','batteryVoltage','number',false)+input('Battery rated capacity (Ah, optional)','batteryAh','number',false)+area('Measured values, instruments and calibration reference','measurements',true)+area('Defects / limitations / inaccessible areas','defects',true)+area('Actions and advice to responsible person','actions',true)+input('Next agreed service date','next','date',false)+input('Responsible person / handover recipient','recipient')+area('Engineer declaration / work completed within stated scope','declaration',true)+signatures()+review();
@@ -273,13 +273,57 @@
     if(stops.length>2)url.searchParams.set('waypoints',stops.slice(1,-1).join('|'));
     return url.href;
   }
+  // Exact shortest open route over a supplied directed road-duration matrix.
+  // Times are seconds; null means unreachable. Stops are never silently dropped.
+  function optimiseRoute(visits, matrix, startId, endId) {
+    const rows=visits.filter(r=>r.kind==='visit'&&!['Cancelled','Completed'].includes(r.values.status));
+    if(rows.length<2||rows.length>10||new Set(rows.map(r=>r.id)).size!==rows.length||new Set(rows.map(r=>r.values.date+'|'+r.values.engineer.trim().toLowerCase())).size!==1)throw Error('Choose 2–10 distinct active visits for one engineer and date.');
+    if(!matrix||!Array.isArray(matrix.ids)||matrix.ids.length!==rows.length||new Set(matrix.ids).size!==rows.length||!rows.every(r=>matrix.ids.includes(r.id))||!Array.isArray(matrix.seconds)||matrix.seconds.length!==rows.length)throw Error('Matrix must identify every selected visit exactly once.');
+    const n=rows.length;
+    for(const row of matrix.seconds)if(!Array.isArray(row)||row.length!==n||row.some(v=>v!==null&&(!Number.isFinite(v)||v<0||v>604800)))throw Error('Invalid directed travel durations.');
+    const start=matrix.ids.indexOf(startId),end=matrix.ids.indexOf(endId);
+    if(start<0||end<0||start===end)throw Error('Choose distinct fixed start and end visits.');
+    const memo=new Map();
+    function solve(mask,last){
+      if(mask===(1<<n)-1)return last===end?{seconds:0,path:[]}:null;
+      const key=mask+':'+last;if(memo.has(key))return memo.get(key);
+      let best=null;
+      for(let j=0;j<n;j++){
+        if(mask&(1<<j)||j===end&&mask!==(((1<<n)-1)^(1<<end)))continue;
+        const travel=matrix.seconds[last][j];if(travel===null)continue;
+        const tail=solve(mask|(1<<j),j);if(!tail)continue;
+        const seconds=travel+tail.seconds;
+        if(!best||seconds<best.seconds)best={seconds,path:[j,...tail.path]};
+      }
+      memo.set(key,best);return best;
+    }
+    const result=solve(1<<start,start);if(!result)throw Error('No reachable route includes every stop.');
+    const ordered=[start,...result.path].map(i=>rows.find(r=>r.id===matrix.ids[i]));
+    // Existing appointment times remain untouched: show feasibility of this proposal.
+    const minutes=t=>Number(t.slice(0,2))*60+Number(t.slice(3,5));
+    let clock=minutes(ordered[0].values.time)+Number(ordered[0].values.minutes);const conflicts=[];
+    for(let i=1;i<ordered.length;i++){
+      const a=matrix.ids.indexOf(ordered[i-1].id),b=matrix.ids.indexOf(ordered[i].id);
+      clock+=matrix.seconds[a][b]/60;
+      if(clock>minutes(ordered[i].values.time))conflicts.push(ordered[i].id);
+      clock=Math.max(clock,minutes(ordered[i].values.time))+Number(ordered[i].values.minutes);
+    }
+    return {visits:ordered,seconds:result.seconds,conflicts,source:String(matrix.source||'User-supplied matrix'),generatedAt:String(matrix.generatedAt||'Unspecified')};
+  }
+  document.addEventListener('submit',e=>{
+    if(e.target.id!=='main-route-optimise')return;e.preventDefault();
+    const out=document.getElementById('main-route-result');
+    try{const f=e.target.elements,m=JSON.parse(f.matrix.value),selected=list('visit').filter(r=>m.ids?.includes(r.id)),r=optimiseRoute(selected,m,f.start.value,f.end.value);
+      out.textContent=r.visits.map((v,i)=>(i+1)+'. '+propertyName(v.values.property)+' ('+v.values.time+')').join(' → ')+' · '+Math.round(r.seconds/60)+' estimated driving minutes · '+r.conflicts.length+' appointment conflicts. Source: '+r.source+' / '+r.generatedAt+'. Proposal only; review appointments before rescheduling.';
+    }catch(error){out.textContent=error.message}
+  });
   function routeBoard(records) {
     const groups=new Map();
     for(const r of records.filter(r=>r.kind==='visit'&&!['Cancelled','Completed'].includes(r.values.status))){const key=r.values.date+'|'+r.values.engineer.trim().toLowerCase();if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r)}
     return '<section class="panel"><h2>Driving routes by engineer and date</h2><p>Routes follow appointment times. Opening Maps shares site addresses with Google. Check traffic, access and travel time before confirming appointments.</p>'+[...groups.values()].map(visits=>{
       let route;try{route=`<a href="${safe(routeLink(visits))}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open scheduled driving route in Maps</a>`}catch(error){route=`<p>${safe(error.message)}</p>`}
       return `<article><h3>${safe(visits[0].values.date)} · ${safe(visits[0].values.engineer)}</h3>${route}</article>`;
-    }).join('')+'</section>';
+    }).join('')+'<details><summary>Optimise a driving route</summary><p>Supply a directed road-duration matrix from your approved routing provider. No addresses are sent automatically. Fix the first and last stops; all other stops are optimised. Existing appointments are preserved and conflicts are reported. Matrix JSON: {ids: [visit IDs], seconds: [[0,300],[360,0]], source: provider, generatedAt: ISO date}.</p><form id="main-route-optimise"><label>Matrix JSON<textarea name="matrix" required></textarea></label><label>First visit ID<input name="start" required></label><label>Last visit ID<input name="end" required></label><button>Calculate shortest driving proposal</button></form><p id="main-route-result" role="status"></p></details></section>';
   }
   function plannerBoard() {
     return routeBoard(list('visit'))+'<section class="panel"><h2>Visits by date and postcode district</h2><p>Grouped for planning; allow travel time separately. This view does not calculate routes or travel times.</p>'+plannerGroups(list('visit')).map(g=>`<article class="main-plan-group"><h3>${safe(g.date)} · ${safe(g.area)}</h3><p>${g.visits.length} visits · ${g.minutes} minutes on site</p>${g.visits.map(r=>`<p>${safe(r.values.time)} · ${safe(propertyName(r.values.property))} · ${safe(r.values.engineer)} · ${safe(r.values.serviceType)}</p><button type="button" data-main-pack="${safe(r.id)}">Engineer job pack</button>`).join('')}</article>`).join('')+'</section>';
@@ -508,7 +552,7 @@
   addEventListener('beforeunload',()=>{remember();stopSpeech()});
   addEventListener('storage',e=>{if(e.key===storageKey())message('Workspace changed in another tab. Reload before editing saved records; stale revisions cannot overwrite newer records.')});
   // Read-only test interface: no credentials or automatic cloud calls.
-  window.ParamountMainApp={servicePdf,totals,calendarReminders,routeLink,wordDocument,registerRows,reminderRows,plannerGroups,jobPack,documentLines,refresh:()=>{if(team())state=read()},reload:()=>{state=null;render()},recordsPdf,nextAsset,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
+  window.ParamountMainApp={servicePdf,totals,optimiseRoute,calendarReminders,routeLink,wordDocument,registerRows,reminderRows,plannerGroups,jobPack,documentLines,refresh:()=>{if(team())state=read()},reload:()=>{state=null;render()},recordsPdf,nextAsset,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
   render();
 })();
 

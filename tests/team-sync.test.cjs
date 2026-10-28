@@ -60,7 +60,7 @@ test('malformed storage, malformed remote rows and storage quota errors cannot r
 });
 test('child uploads wait for conflicting or unsynced properties and invalid identities are rejected',async()=>{
   const s=server(),a=engine(s);const r=record('lighting');a.stage(r);await a.sync();assert.equal(s.rows.size,0);a.stage(site());await a.sync();assert.equal(s.rows.size,2);
-  assert.throws(()=>a.stage({...r,property_id:randomUUID()}),{code:'invalid'});assert.throws(()=>a.stage({...r,kind:'quote'}),{code:'invalid'});
+  assert.throws(()=>a.stage({...r,property_id:randomUUID()}),{code:'invalid'});assert.throws(()=>a.stage({...r,kind:'unknown'}),{code:'invalid'});
 });
 test('transport never persists auth; uses only configured endpoint and redacts server errors',async()=>{
   const requests=[];const id=randomUUID();const t=new Transport(settings,async(url,options)=>{requests.push({url,options});return {ok:true,json:async()=>url.includes('/token?')?{user:{id},access_token:'token-fixture'}:[]}});
