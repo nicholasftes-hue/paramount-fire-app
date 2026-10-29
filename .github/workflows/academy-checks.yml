@@ -36,6 +36,10 @@ jobs:
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
       - if: ${{ !cancelled() }}
+        run: node tests/repeat-browser.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - if: ${{ !cancelled() }}
         run: node tests/team-sync-browser.cjs
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome

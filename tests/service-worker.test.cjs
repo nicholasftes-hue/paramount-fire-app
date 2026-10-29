@@ -13,7 +13,7 @@ function worker() {
   };
   const context=vm.createContext({URL,console,
     self:{registration:{scope:'https://example.test/app/'},location:{origin:'https://example.test'},addEventListener:(n,f)=>events[n]=f,skipWaiting:()=>skipped++,clients:{claim:()=>claimed++}},
-    caches:{open:async()=>cache,keys:async()=>['other-app-cache','paramount-shell-academy-v1','paramount-demo-v1','paramount-shell-main-app-v11'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['other-app-cache','paramount-shell-academy-v1','paramount-demo-v1','paramount-shell-main-app-v12'],delete:async key=>deleted.push(key)},
     fetch:(...args)=>network(...args)
   });
   vm.runInContext(fs.readFileSync('service-worker.js','utf8'),context);

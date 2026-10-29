@@ -17,7 +17,7 @@ async function check(name,fn){await fn();results.push({name,status:'passed'});co
  const base=`http://127.0.0.1:${server.address().port}/`;
  await p.goto(base);await p.waitForFunction(()=>!!window.ParamountMainApp);
  async function tab(name){await p.locator(`[data-tab="${name}"]:visible`).first().click();await p.locator('.main-app').waitFor()}
- async function fill(values){await p.locator('form[data-main-form]').evaluate((form,values)=>{for(const [name,value]of Object.entries(values)){if(value===undefined)continue;const el=form.elements.namedItem(name);if(!el)throw Error('Missing field '+name);if(el.type==='checkbox')el.checked=!!value;else el.value=value}form.dispatchEvent(new Event('input',{bubbles:true}));form.elements.reviewed.checked=true},values)}
+ async function fill(values){if(values.asset&&await p.locator('[data-equipment-single]').count())await p.locator('[data-equipment-single]').click();await p.locator('form[data-main-form]').evaluate((form,values)=>{for(const [name,value]of Object.entries(values)){if(value===undefined)continue;const el=form.elements.namedItem(name);if(!el)throw Error('Missing field '+name);if(el.type==='checkbox')el.checked=!!value;else el.value=value}form.dispatchEvent(new Event('input',{bubbles:true}));form.elements.reviewed.checked=true},values)}
  async function save(values){await fill(values);await p.locator('form[data-main-form] button[type=submit]').click();await p.waitForFunction(()=>document.getElementById('main-status')?.textContent.startsWith('Draft saved'));}
  const common={property:'P001',date:'2026-10-26',reviewed:'yes'};
  await check('all core draft forms save and retain records after reload',async()=>{
