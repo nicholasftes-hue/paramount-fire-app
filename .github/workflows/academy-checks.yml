@@ -62,6 +62,8 @@ jobs:
       - if: ${{ !cancelled() }}
         run: python tests/populated-documents.py
       - if: ${{ !cancelled() }}
+        run: python tests/premium-documents.py
+      - if: ${{ !cancelled() }}
         run: python tests/templates.py
       - if: ${{ !cancelled() }}
         run: python tests/service-pdf.py

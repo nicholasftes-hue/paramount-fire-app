@@ -97,3 +97,43 @@ test('legacy sources remain unmodified and unavailable across account/team bound
  context.cloudSession={user:{id:'other'}};assert.equal(api.legacyHistory('P1').length,0);assert.throws(()=>api.legacyDraft('services',0,'P1'),/unavailable/);
  context.cloudSession=null;context.window.ParamountTeamSync={scope:()=> 'team'};assert.equal(api.legacyHistory('P1').length,0);
 });
+
+test('single-asset repeat combines the latest completed visit, deduplicates IDs and excludes other properties and dates',()=>{
+ const {api}=harness();
+ for(const kind of ['pat','lighting','extinguisher']){
+  const one=(id,asset,date='2026-10-27',updated='2026-10-27T12:00:00Z')=>({...completed,id,kind,updated,values:{...completed.values,equipment:'',asset,system:asset,model:'Fictional model',capacity:'6L',date}});
+  const a=one('a','A-1'),b=one('b','B-1'),duplicate=one('duplicate',' a-1 ','2026-10-27','2026-10-27T11:00:00Z');
+  const records=[a,b,duplicate,one('old','OLD','2026-10-01'),{...one('other','OTHER'),values:{...a.values,property:'P2'}},{...one('unfinished','NEW'),values:{...a.values,serviceStatus:'In progress'}}];
+  const before=JSON.stringify(records),v=api.repeatServiceValues(records,kind,'P1'),rows=JSON.parse(v.equipment);
+  assert.equal(rows.length,2);assert.deepEqual(new Set(rows.map(r=>r.id)),new Set(['A-1','B-1']));
+  assert.equal(JSON.stringify(records),before);assert.match(v.repeatSource,/a/);assert.match(v.repeatSource,/b/);
+  for(const r of rows){assert.equal(r.result,'Not Tested');assert.equal(r.readings,'');assert.equal(r.defects,'')}
+  for(const k of ['engineerSignature','customerSignature','tests','declaration','outcome'])assert.equal(v[k],undefined);
+ }
+});
+test('latest explicit batch remains authoritative after assets were removed',()=>{
+ const {api}=harness();const old={...completed,id:'removed',values:{...completed.values,equipment:'',asset:'REMOVED',date:'2026-10-01'}};
+ const rows=JSON.parse(api.repeatServiceValues([old,completed],'pat','P1').equipment);assert.equal(rows.length,1);assert.equal(rows[0].id,item.id);
+});
+test('property visit drafts remain independent and resume with all equipment after offline reconstruction',()=>{
+ const {api,storage}=harness();const second={...completed,id:'second',values:{...completed.values,equipment:'',asset:'K-002'}};
+ const first={...completed,values:{...completed.values,equipment:''}};
+ api.merge({application:'paramount-main-app',version:1,scope:'device-guest',records:[first,second]});api.load();api.prepareRepeat('pat','P1',true);
+ const recovered=harness(storage).api.read();assert.equal(JSON.parse(recovered.drafts.pat.values.equipment).length,2);assert.equal(recovered.drafts.pat.editing,null);assert.equal(recovered.records.length,2);
+});
+test('extinguisher and installation exports include consistent signature and remedial sections',()=>{
+ const {api}=harness();
+ for(const kind of ['extinguisher','installation']){
+  const r={...completed,kind,values:{...completed.values,devices:'Fictional installed devices',engineerSignature:'Fictional engineer',customerSignature:'Fictional customer',actions:'Fictional repair'}};
+  const lines=api.documentLines(r).join('\n');assert.match(lines,/DRAFT SIGNATURE ACKNOWLEDGEMENTS/);assert.match(lines,/DEFECTS \/ LIMITATIONS \/ ACTIONS/);assert.match(lines,/Fictional customer/);
+  fs.writeFileSync('test-results/premium-'+kind+'.docx',api.wordDocument(r));fs.writeFileSync('test-results/premium-'+kind+'.pdf',api.recordsPdf([r]),'binary');
+ }
+});
+test('fictional preview source records pass real validation and repeat without historical evidence',()=>{
+ const {api,context}=harness();context.db.properties=[{id:'P001',name:'Fictional property'}];
+ const data=JSON.parse(fs.readFileSync('scripts/fictional-preview-data.json','utf8'));
+ api.merge({application:'paramount-main-app',version:1,scope:'device-guest',records:data.records});
+ for(const kind of ['service','pat','lighting','extinguisher']){
+  const v=api.repeatServiceValues(api.read().records,kind,'P001');assert.equal(JSON.parse(v.equipment).length,3);assert.equal(v.engineerSignature,undefined);assert.equal(v.reviewed,'');
+ }
+});

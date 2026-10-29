@@ -94,13 +94,40 @@
   function latestCompleted(records,kind,site) {
     return records.filter(r=>r.kind===kind&&r.values.property===site&&r.values.serviceStatus==='Completed').sort((a,b)=>b.values.date.localeCompare(a.values.date)||b.updated.localeCompare(a.updated)||b.id.localeCompare(a.id))[0];
   }
+  function repeatServiceValues(records,kind,site) {
+    const source=latestCompleted(records,kind,site);
+    if(!source)throw Error('No completed service of this type for this property.');
+    const values=repeatValues(source);
+    // A batch is an explicit inventory snapshot: never resurrect its removed assets.
+    if(!['pat','lighting','extinguisher'].includes(kind)||equipmentRows(source.values.equipment).length)return values;
+    const sources=records.filter(r=>r.kind===kind&&r.values.property===site&&r.values.serviceStatus==='Completed'&&r.values.date===source.values.date)
+      .sort((a,b)=>b.updated.localeCompare(a.updated)||b.id.localeCompare(a.id));
+    const rows=new Map(),used=[];
+    for(const r of sources){
+      let added=false;
+      for(const row of equipmentRows(repeatValues(r).equipment)){
+        const key=row.id.trim().toLowerCase();
+        if(!rows.has(key)){rows.set(key,row);added=true}
+      }
+      if(added)used.push(r.id);
+      if(equipmentRows(r.values.equipment).length)break;
+    }
+    if(rows.size){values.equipment=JSON.stringify([...rows.values()]);values.repeatSource=used.join(', ')}
+    equipmentRows(values.equipment); // Validate the combined size before writing any draft.
+    return values;
+  }
+  function preparedServices(site) {
+    const rows=Object.entries(state.drafts).filter(([kind,d])=>reusable[kind]&&d.values.property===site);
+    return rows.length?'<section class="panel"><h3>Prepared services — '+safe(propertyName(site))+'</h3><p>Saved unfinished forms. Open each service to enter current results and review.</p><div class="main-actions">'+rows.map(([kind,d])=>'<button type="button" data-tab="'+safe(Object.keys(pages).find(p=>pages[p]===kind))+'">Resume '+safe(names[kind])+' · '+(d.values.equipment?JSON.parse(d.values.equipment).length:0)+' assets</button>').join('')+'</div></section>':'';
+  }
   function prepareRepeat(kind,site,entire=false) {
     if(!property(site))throw Error('Select a property first.');
     const targets=(entire?Object.keys(reusable):[kind]).map(k=>latestCompleted(state.records,k,site)).filter(Boolean);
     if(!targets.length)throw Error('No completed service found. Existing reviewed drafts are not assumed completed.');
+    const prepared=targets.map(source=>({kind:source.kind,values:repeatServiceValues(state.records,source.kind,site)}));
     remember();
     if(targets.some(r=>state.drafts[r.kind])&&!confirm('Replace unfinished forms for the selected service types? Saved records and certificates are retained.'))return;
-    commit(s=>{for(const source of targets)s.drafts[source.kind]={values:repeatValues(source),editing:null,updated:now()}});
+    commit(s=>{for(const source of prepared)s.drafts[source.kind]={values:source.values,editing:null,updated:now()}});
     document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');render();
     message('Prepared '+targets.map(r=>names[r.kind]).join(', ')+'. New results are Not Tested. Open each section to complete and save.');
   }
@@ -113,7 +140,7 @@
   function paintEquipment(form) {
     const target=form.querySelector('[data-equipment-rows]');if(!target)return;
     let rows;try{rows=JSON.parse(form.elements.equipment.value||'[]')}catch{rows=[]}
-    target.innerHTML=rows.map((r,i)=>`<fieldset data-equipment-index="${i}"><legend>Asset ${i+1}</legend><div class="main-grid">${editorColumns(form.dataset.mainForm).map(k=>`<label>${safe(({id:'Unique ID',description:'Appliance / fitting',specification:'Class / stable specifications',duration:'Actual duration (minutes)',deviceType:'Device type',address:'Loop / address',zone:'Zone',serial:'Serial number',model:'Manufacturer / model',capacity:'Type / capacity',manufactured:'Manufacture date / year',lastTest:'Last extended service / test date',next:'Next agreed service date'})[k]||k)}${k==='result'?`<select data-equipment-field="${k}">${['Not Tested','Pass','Fail'].map(v=>`<option ${r[k]===v?'selected':''}>${v}</option>`).join('')}</select>`:`<input data-equipment-field="${k}" value="${safe(r[k]||'')}" ${k==='id'?'required':''}>`}</label>`).join('')}</div><button type="button" data-equipment-remove="${i}">Remove asset</button></fieldset>`).join('');
+    target.innerHTML=rows.map((r,i)=>`<fieldset data-equipment-index="${i}"><legend>Asset ${i+1}</legend><div class="main-grid">${editorColumns(form.dataset.mainForm).map(k=>`<label>${safe(({id:'Unique ID',description:'Appliance / fitting',specification:'Class / stable specifications',duration:'Actual duration (minutes)',deviceType:'Device type',address:'Loop / address',zone:'Zone',serial:'Serial number',model:'Manufacturer / model',capacity:'Type / capacity',manufactured:'Manufacture date / year',lastTest:'Last extended service / test date',next:'Next agreed service date'})[k]||k)}${k==='result'?`<select data-equipment-field="${k}">${['Not Tested','Pass','Fail'].map(v=>`<option ${r[k]===v?'selected':''}>${v}</option>`).join('')}</select>`:`<input data-equipment-field="${k}" value="${safe(r[k]||'')}" ${k==='id'?'required':''}>`}</label>`).join('')}</div><div class="main-actions" role="group" aria-label="Result for asset ${i+1}">${['Not Tested','Pass','Fail'].map(result=>`<button type="button" data-equipment-result="${result}" aria-pressed="${r.result===result}">${result}</button>`).join('')}</div><button type="button" data-equipment-remove="${i}">Remove asset</button></fieldset>`).join('');
     // Batch records replace the single-asset inputs while retaining old record editing.
     if(['lighting','service'].includes(form.dataset.mainForm))form.elements.tests.required=!rows.length;
     if(['pat','extinguisher'].includes(form.dataset.mainForm))for(const k of (form.dataset.mainForm==='pat'?['asset','appliance','location','equipmentClass','visual','tests','outcome','defects']:['asset','location','model','capacity','manufactured','lastTest','tests','outcome','defects'])){const el=form.elements.namedItem(k);if(el){el.required=!rows.length&&!['manufactured','lastTest'].includes(k);el.closest('label').hidden=!!rows.length}}
@@ -130,8 +157,8 @@
       case 'service': return common+input('Engineer','engineer')+input('System / panel make, model and category','system')+input('Service scope / agreed standard and edition','standard')+input('Battery make / model','batteryModel','text',false)+input('Battery quantity','batteryCount','number',false)+input('Panel serial number','panelSerial','text',false)+area('Zone / device register: IDs, locations and stable specifications','zones')+area('Devices / zones tested and actual results (one per line)','tests',true)+select('Battery inspection','battery',['Satisfactory','Unsatisfactory','Not inspected','Not applicable'])+input('Battery voltage measured (V, optional)','batteryVoltage','number',false)+input('Battery rated capacity (Ah, optional)','batteryAh','number',false)+area('Measured values, instruments and calibration reference','measurements',true)+area('Defects / limitations / inaccessible areas','defects',true)+area('Actions and advice to responsible person','actions',true)+input('Next agreed service date','next','date',false)+input('Responsible person / handover recipient','recipient')+area('Engineer declaration / work completed within stated scope','declaration',true)+signatures()+review();
       case 'pat': return quickEntry()+common+input('Engineer / tester','engineer')+input('Test instrument / serial number','instrument')+input('Calibration reference / due date','calibration')+input('Appliance ID / asset number','asset')+select('Appliance type','appliance',['Kettle','Toaster','Router','Oven','Hob','Cooker hood','Washing machine','Tumble dryer','Dishwasher','Fridge / freezer','Other'])+input('Room / location','location')+select('Equipment class','equipmentClass',['Class I','Class II','Class III','Not determined'])+area('Visual inspection observations','visual',true)+area('Electrical tests performed, actual readings, limits and method','tests',true)+select('Recorded outcome','outcome',['Pass within recorded test scope','Fail / unsafe — action required','Not tested / inaccessible'])+area('Defects, labels, isolation and actions / advice','defects',true)+input('Next agreed test date','next','date',false)+signatures()+review();
       case 'lighting': return common+input('Engineer / tester','engineer')+input('System / fitting reference','system')+input('Location / circuit / asset IDs','location')+select('Test scope','testType',['Monthly functional test','Annual full-duration test','Routine functional test','Duration test','Visual inspection','Other agreed scope'])+input('Rated full duration (minutes)','ratedDuration','number',false)+input('Duration observed (minutes)','duration','number',false)+area('Fittings tested, method and actual results','tests',true)+area('Defects, inaccessible fittings and limitations','defects',true)+area('Remedial action / responsible person notified','actions',true)+select('Recorded outcome','outcome',['Satisfactory within recorded scope','Defective / action required','Not tested / inaccessible'],false)+input('Supply restored / charging indicator observations','restoration','text',false)+input('Responsible person notified','recipient','text',false)+input('Next agreed test date','next','date',false)+signatures()+review();
-      case 'extinguisher': return common+input('Engineer','engineer')+input('Asset / serial number','asset')+input('Location','location')+input('Manufacturer / model','model')+input('Type and capacity','capacity')+input('Manufacture date / year','manufactured','text',false)+input('Last extended service / test date','lastTest','date',false)+select('Visit type','visitType',['Basic service','Extended service','Replacement','Inspection only'])+area('Checks performed and measured results','tests',true)+select('Recorded outcome','outcome',['Satisfactory within recorded scope','Defective / action required','Not serviced / inaccessible'])+area('Defects, limitations and action taken','defects',true)+input('Next agreed service date','next','date',false)+review();
-      case 'installation': return common+input('Engineer','engineer')+select('Form stage','stage',['Installation record','Commissioning record'])+input('System make / model / category','system')+input('Design / specification reference and standard edition','standard')+input('Drawing revision / cause-and-effect reference','drawingRef')+area('Installed devices, addresses / zones and locations','devices',true)+area('Inspection and test results, actual measurements','tests',true)+area('Variations, defects, exclusions and limitations','defects',true)+area('Handover documents, training and outstanding actions','actions',true)+input('Responsible person / recipient','recipient')+area('Engineer declaration limited to recorded scope','declaration',true)+review();
+      case 'extinguisher': return common+input('Engineer','engineer')+input('Asset / serial number','asset')+input('Location','location')+input('Manufacturer / model','model')+input('Type and capacity','capacity')+input('Manufacture date / year','manufactured','text',false)+input('Last extended service / test date','lastTest','date',false)+select('Visit type','visitType',['Basic service','Extended service','Replacement','Inspection only'])+area('Checks performed and measured results','tests',true)+select('Recorded outcome','outcome',['Satisfactory within recorded scope','Defective / action required','Not serviced / inaccessible'])+area('Defects, limitations and action taken','defects',true)+input('Next agreed service date','next','date',false)+signatures()+review();
+      case 'installation': return common+input('Engineer','engineer')+select('Form stage','stage',['Installation record','Commissioning record'])+input('System make / model / category','system')+input('Design / specification reference and standard edition','standard')+input('Drawing revision / cause-and-effect reference','drawingRef')+area('Installed devices, addresses / zones and locations','devices',true)+area('Inspection and test results, actual measurements','tests',true)+area('Variations, defects, exclusions and limitations','defects',true)+area('Handover documents, training and outstanding actions','actions',true)+input('Responsible person / recipient','recipient')+area('Engineer declaration limited to recorded scope','declaration',true)+signatures()+review();
       case 'quote': case 'invoice': return common+input(kind==='quote'?'Quotation number':'Invoice number','number')+input('Customer / billing name','customer')+area('Billing address','address',true)+input(kind==='quote'?'Valid until':'Payment due','due','date')+area('Line items: description | quantity | unit price (£), one per line','lines',true)+input('VAT rate (%) — confirm applicability','vat','number',true,'0')+input('VAT registration (if applicable)','vatNumber','text',false)+input('Related quote / job reference','source','text',false)+area('Terms, exclusions and payment instructions (verified details only)','terms',true)+`<p class="main-wide main-total" id="main-total">Enter line items to calculate totals.</p>`+review();
       case 'visit': return common+input('Engineer / team','engineer')+input('Start time (local)','time','time')+input('Duration (minutes)','minutes','number',true,'60')+select('Service type','serviceType',['Fire alarm','Extinguisher','PAT','Emergency lighting','Call-out','Installation / commissioning'])+select('Visit status','status',['Planned','Confirmed','Completed','Cancelled'])+area('Access arrangements / scope / reminder notes','notes',true)+review();
       case 'callout': return common+input('Engineer','engineer')+input('Job reference','number')+select('Priority','priority',['Routine','Urgent','Immediate responsible-person attention'])+select('Status','status',['Open','Investigating','Repair proposed','Repaired — awaiting verification','Closed after verification'])+area('Reported issue and affected equipment / locations','issue',true)+area('Observed defects, risks and advice to responsible person','defects',true)+area('Actions taken / parts / verification results','actions',true)+input('Follow-up date','next','date',false)+review();
@@ -246,7 +273,7 @@
   function preview(id) {
     const r=record(id);if(!r)return;
     if(r.values.reviewed!=='yes')throw Error('Review the record before previewing.');
-    let body=['service','pat','lighting'].includes(r.kind)?certificateHtml(r):detail(r);
+    let body=['service','pat','lighting','extinguisher','installation'].includes(r.kind)?certificateHtml(r):detail(r);
     if(['quote','invoice'].includes(r.kind)){
       const v=r.values,t=totals(v);
       body=`<p><b>${safe(names[r.kind])} number:</b> ${safe(v.number)}<br><b>Date:</b> ${safe(v.date)}<br><b><button type="button" data-main-word="${safe(r.id)}">Download editable Word draft</button>${r.kind==='visit'?`<button type="button" data-main-pack="${safe(r.id)}">Engineer job pack</button>`:''}${r.kind==='quote'?'Valid until':'Payment due'}:</b> ${safe(v.due)}</p><h3>Customer / billing address</h3><p>${safe(v.customer)}<br>${safe(v.address).replace(/\n/g,'<br>')}</p><p><b>Site:</b> ${safe(propertyName(v.property))}<br><b>Related job / quote:</b> ${safe(v.source||'—')}</p><table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${t.lines.map(l=>`<tr><td>${safe(l.description)}</td><td>${l.quantity}</td><td>${pounds(l.unit)}</td><td>${pounds(l.amount)}</td></tr>`).join('')}</tbody></table><p>Subtotal: ${pounds(t.subtotal)}<br>VAT (${safe(v.vat)}%): ${pounds(t.tax)}<br><b>Total: ${pounds(t.total)}</b><br>VAT registration: ${safe(v.vatNumber||'Not supplied / confirm applicability')}</p><h3>Terms / exclusions</h3><p>${safe(v.terms).replace(/\n/g,'<br>')}</p><p>Company address, registration and payment details must be verified before issue.</p>`;
@@ -289,8 +316,8 @@
     }
     return [...latest.values()].sort((a,b)=>a.values.property.localeCompare(b.values.property)||a.kind.localeCompare(b.kind)||(a.values.asset||a.values.system).localeCompare(b.values.asset||b.values.system));
   }
-  function equipmentRegister() {
-    const rows=registerRows(list());
+  function equipmentRegister(site='') {
+    const rows=registerRows(list().filter(r=>!site||r.values.property===site));
     return `<section class="panel"><h2>Property equipment registers</h2><p>Latest dated saved record per property, record type and asset reference. Lighting references may describe a circuit or group; confirm individual fittings in the saved results. Missing assets are not inferred.</p><div class="main-actions"><button data-tab="PAT Testing">Add PAT appliance</button><button data-tab="Emergency Lighting">Add lighting record</button><button data-tab="Extinguishers">Add extinguisher</button><button data-tab="Equipment Library">Add equipment reference</button></div>${rows.map(r=>`<article class="main-record"><h3>${safe(r.values.asset||r.values.system)} · ${safe(propertyName(r.values.property))}</h3><p>${safe(names[r.kind])} · ${safe(r.values.location||'Location not recorded')}<br>${safe(r.values.date)} · ${safe(r.values.outcome||'See saved scope and results')}<br>Next: ${safe(r.values.next||'Not recorded')}</p><button data-main-edit="${safe(r.id)}">Review asset record</button><button data-main-word="${safe(r.id)}">Editable Word draft</button></article>`).join('')||'<p>No saved asset references. Add an appliance, fitting, extinguisher or equipment reference.</p>'}</section>`;
   }
   function legacyHistory(id) {
@@ -313,7 +340,7 @@
   }
   function showHistory(id) {
     const target=document.getElementById('main-history');if(!target)return;
-    let html=list().filter(r=>r.values.property===id).map(recordCard).join('');
+    let html=propertyOverview(id)+preparedServices(id)+list().filter(r=>r.values.property===id).map(recordCard).join('');
     const legacy=legacyHistory(id);
     html+=`<h3>Existing prototype records (${legacy.length}) — this device</h3><p>Original device records are preserved and have no new approval or certification status.</p>`+legacy.map(r=>`<article class="main-record"><b>${safe(r.kind)}</b>${['services','pat','lighting'].includes(r.kind)?`<button data-main-legacy="${safe(r.kind)}:${r.index}" data-legacy-property="${safe(id)}">Prepare new draft from stable details</button>`:''}${Object.entries(r.values).map(([k,v])=>`<p>${safe(k)}: ${safe(typeof v==='object'?JSON.stringify(v):v)}</p>`).join('')}</article>`).join('');
     target.innerHTML=html||'<p>No history recorded.</p>';
@@ -449,11 +476,19 @@
     propertyEditing=null;
     return `<section class="panel"><h2>${team()?'Property database — isolated team workspace':'Property database — this device'}</h2><p>${team()?'Test staff workspace. New properties receive shared UUIDs; original local properties are never uploaded automatically.':'Shared on this device, including across sign-ins. Existing service records are retained. Cloud Properties remains a separate test area.'}</p><label>Search name, address, postcode or panel<input id="main-property-search" type="search"></label><div id="main-properties"></div></section><section class="panel"><h2 id="main-property-heading">Add property</h2><form id="main-property-form" data-scope="${safe(scope())}"><div class="main-grid">${input('Property name','name')}${input('Address','address','text',false)}${input('Postcode','postcode','text',false)}${input('Panel make / model','panel')}${input('Contact name','contact','text',false)}${input('Phone','phone','tel',false)}${input('Email','email','email',false)}${input('Last service date','last','date')}${input('Service interval (months, 1–60)','months','number',true,'6')}</div><div class="main-actions"><button type="submit">Save property</button><button type="reset">Start new property</button><button type="button" data-tab="Property History">Open property history</button></div></form></section>`;
   }
+  function propertyOverview(id) {
+    if(!property(id))return '';
+    const rows=list().filter(r=>r.values.property===id);
+    const latest=Object.keys(reusable).map(k=>rows.filter(r=>r.kind===k).sort((a,b)=>b.values.date.localeCompare(a.values.date)||b.updated.localeCompare(a.updated))[0]).filter(Boolean);
+    const open=rows.filter(r=>r.kind==='callout'&&r.values.status!=='Closed after verification');
+    const failed=registerRows(rows).filter(r=>/Fail|Defective/i.test(r.values.outcome||''));
+    return '<section class="main-record"><h3>Service overview</h3>'+latest.map(r=>'<p>'+safe(names[r.kind])+': '+safe(r.values.date)+' · '+safe(r.values.serviceStatus||'Draft')+'<br><strong>'+(!r.values.next?'Next date not recorded':r.values.next<today()?'Overdue: '+safe(r.values.next):'Next: '+safe(r.values.next))+'</strong></p>').join('')+'<p>'+open.length+' open call-outs · '+failed.length+' assets with a latest recorded failure / defect. Review saved scope and remedial records.</p><div class="main-actions"><button type="button" data-main-site-repeat="'+safe(id)+'">Prepare entire property visit</button><button type="button" data-main-site-register="'+safe(id)+'">Open this property’s equipment registers</button></div></section>';
+  }
   function showProperties(query) {
     const target=document.getElementById('main-properties');if(!target)return;
     const q=query.trim().toLowerCase();
     const rows=properties().filter(p=>['name','address','postcode','panel','contact'].some(k=>String(p[k]||'').toLowerCase().includes(q)));
-    target.innerHTML=`<p>${rows.length} of ${properties().length} properties</p>`+rows.map(p=>`<article class="main-record"><h3>${safe(p.name)}</h3><p>${safe(p.address||'')} ${safe(p.postcode||'')}<br>${safe(p.panel)}<br>Last service: ${safe(p.last)} · interval ${safe(p.months)} months</p><button type="button" data-main-property-edit="${safe(p.id)}">Edit property</button></article>`).join('');
+    target.innerHTML=`<p>${rows.length} of ${properties().length} properties</p>`+rows.map(p=>`<article class="main-record"><h3>${safe(p.name)}</h3><p>${safe(p.address||'')} ${safe(p.postcode||'')}<br>${safe(p.panel)}<br>Last service: ${safe(p.last)} · interval ${safe(p.months)} months</p><div class="main-actions"><button type="button" data-main-property-edit="${safe(p.id)}">Edit property</button><button type="button" data-main-site-history="${safe(p.id)}">Services / dates / defects</button></div></article>`).join('');
   }
   function saveProperty(values,expected) {
     for(const k of ['name','panel','last','months'])if(!String(values[k]||'').trim())throw Error('Complete '+k+' before saving the property.');
@@ -470,6 +505,15 @@
     localStorage.setItem(key,JSON.stringify(fresh));db=fresh;return saved;
   }
   document.addEventListener('click',e=>{
+    const siteButton=e.target.closest('[data-main-site-history],[data-main-site-register],[data-main-site-repeat]');
+    if(siteButton){try{
+      load();
+      const id=siteButton.dataset.mainSiteHistory||siteButton.dataset.mainSiteRegister||siteButton.dataset.mainSiteRepeat;
+      if(!property(id))throw Error('Property unavailable.');
+      if(siteButton.dataset.mainSiteRepeat){prepareRepeat('service',id,true);tab='Property History';render();document.getElementById('main-history-property').value=id;showHistory(id)}
+      else if(siteButton.dataset.mainSiteRegister){tab='Equipment Registers';render();document.getElementById('view').innerHTML='<div class="main-app">'+banner()+equipmentRegister(id)+'</div>'}
+      else {tab='Property History';render();document.getElementById('main-history-property').value=id;showHistory(id)}
+    }catch(error){message(error.message)}return}
     const b=e.target.closest('[data-main-property-edit]');if(!b)return;
     try{
       const fresh=team()?null:localStorage.getItem(key);if(fresh)db=JSON.parse(fresh);
@@ -489,7 +533,7 @@
   const fieldLabels={date:'Record date',engineer:'Engineer / tester',system:'System / fitting reference',standard:'Agreed scope / standard edition',tests:'Tests performed and actual results',battery:'Battery inspection',batteryVoltage:'Battery voltage (V)',batteryAh:'Battery capacity (Ah)',measurements:'Measurements / instrument / calibration',defects:'Defects / limitations / inaccessible areas',actions:'Actions / advice / handover',next:'Next agreed test / service date',recipient:'Responsible person / handover recipient',declaration:'Engineer declaration within recorded scope',asset:'Appliance / asset ID',appliance:'Appliance type',location:'Location / circuit / asset IDs',equipmentClass:'Equipment class',instrument:'Test instrument / serial',calibration:'Calibration reference / due date',visual:'Visual inspection',outcome:'Recorded outcome',testType:'Test scope',duration:'Actual observed duration (minutes)',restoration:'Supply restored / charging observations',panelSerial:'Panel serial number',batteryModel:'Battery make / model',batteryCount:'Battery quantity',zones:'Legacy zone / device register',equipment:'Structured equipment register',legacySource:'Preserved legacy source provenance',repeatSource:'Previous completed record reference'};
   const signatureFields=['engineerSignature','engineerSigned','customerName','customerSignature','customerSigned'];
   function certificateLines(r) {
-    if(!['service','pat','lighting'].includes(r.kind)||r.values.reviewed!=='yes')throw Error('Select a reviewed engineering draft.');
+    if(!['service','pat','lighting','extinguisher','installation'].includes(r.kind)||r.values.reviewed!=='yes')throw Error('Select a reviewed engineering draft.');
     const v=r.values,site=r.siteSnapshot||siteDetails(property(v.property));
     const headings=['SITE / CUSTOMER','SYSTEM / PANEL / BATTERIES','SERVICE SCOPE','DEVICE REGISTER / ACTUAL RESULTS','DEFECTS / LIMITATIONS / ACTIONS','DRAFT SIGNATURE ACKNOWLEDGEMENTS'];
     const used=new Set(['property','reviewed',...signatureFields]);
@@ -498,15 +542,15 @@
     return [r.kind==='service'?'Fire alarm service certificate — DRAFT':names[r.kind]+' — DRAFT','Reference: '+r.id,'Revision: '+r.revision,'Saved: '+r.updated,
       '',headings[0],...(!r.siteSnapshot?['Legacy record: current site details; no original site snapshot.']:['Site details recorded at first save:']),...Object.entries(site).filter(([k])=>k!=='id').map(([k,v])=>k+': '+v),
       ...group(headings[1],['system','panelSerial','batteryModel','batteryCount','batteryAh','battery','batteryVoltage']),
-      ...group(headings[2],['date','engineer','standard','testType','serviceStatus','testState','measurements','instrument','calibration','ratedDuration','duration']),
-      ...group(headings[3],['zones','equipment','tests','visual','outcome']),
+      ...group(headings[2],['date','engineer','standard','stage','visitType','testType','serviceStatus','testState','measurements','instrument','calibration','ratedDuration','duration']),
+      ...group(headings[3],['asset','appliance','location','equipmentClass','model','capacity','manufactured','lastTest','drawingRef','devices','zones','equipment','tests','visual','outcome']),
       ...group(headings[4],['defects','actions','restoration','next','recipient','declaration']),
       ...Object.keys(v).filter(k=>!used.has(k)).map(field),
       '',headings[5],'Engineer signature (typed): '+(v.engineerSignature||'________________________'),'Engineer signature date: '+(v.engineerSigned||'________________'),'Customer / responsible person: '+(v.customerName||v.recipient||'________________________'),'Customer signature (typed): '+(v.customerSignature||'________________________'),'Customer signature date: '+(v.customerSigned||'________________'),'Acknowledgement of this draft only; no approval or controlled issue.','Competent review of scope, results and approved certification is pending.'];
   }
   function documentLines(r) {
     if(!r||r.values.reviewed!=='yes')throw Error('Select a reviewed saved draft.');
-    if(['service','pat','lighting'].includes(r.kind))return certificateLines(r);
+    if(['service','pat','lighting','extinguisher','installation'].includes(r.kind))return certificateLines(r);
     const lines=[names[r.kind]+' — DRAFT','Reference: '+r.id,'Revision: '+r.revision,'Saved: '+r.updated,'DRAFT — NOT ISSUED — NOT A COMPLIANCE CERTIFICATE'];
     const site=r.siteSnapshot||siteDetails(property(r.values.property));
     lines.push('',r.siteSnapshot?'Saved site details':'Current site details',...Object.entries(site).map(([k,v])=>k+': '+v));
@@ -529,7 +573,7 @@
       '[Content_Types].xml':'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>',
       '_rels/.rels':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
       'word/_rels/document.xml.rels':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="footer" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>',
-      'word/footer1.xml':'<?xml version="1.0"?><w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'+paragraph('DRAFT — NOT ISSUED — NOT A COMPLIANCE CERTIFICATE',true)+'</w:ftr>',
+      'word/footer1.xml':'<?xml version="1.0"?><w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'+paragraph('DRAFT — NOT ISSUED — NOT A COMPLIANCE CERTIFICATE',true)+paragraph('Reference: '+r.id+' · Revision: '+r.revision)+'<w:p><w:r><w:t>Page </w:t></w:r><w:fldSimple w:instr="PAGE"/><w:r><w:t> of </w:t></w:r><w:fldSimple w:instr="NUMPAGES"/></w:p></w:ftr>',
       'word/document.xml':'<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>'+paragraph('PARAMOUNT FIRE PROTECTION',true)+body+'<w:sectPr><w:footerReference w:type="default" r:id="footer"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="900" w:bottom="1100" w:left="900" w:footer="500"/></w:sectPr></w:body></w:document>'
     };
     const encoder=new TextEncoder(),parts=[],central=[];let offset=0;
@@ -596,7 +640,7 @@
     if(tab==='Dashboard'){
       view.innerHTML=dashboard();return;
     }
-    if(kind){const legacy=['Service Records','Quotes','Planner'].includes(tab)?`<details class="panel"><summary>Preserved prototype ${safe(tab)} — existing records</summary><div id="main-legacy"></div></details>`:'';const old=view.innerHTML;view.innerHTML=`<div class="main-app">${banner()}${tab==='Office'?officeSummary():''}${tab==='Planner'?plannerBoard()+scheduleSummary():''}${workspace(kind)}${legacy}</div>`;const el=document.getElementById('main-legacy');if(el){el.innerHTML=old;el.querySelectorAll('form').forEach(f=>f.remove());if(tab==='Planner'){el.querySelectorAll('[data-plan-filter]').forEach(b=>b.remove())}}restore();}
+    if(kind){const legacy=['Service Records','Quotes','Planner'].includes(tab)?`<details class="panel"><summary>Preserved prototype ${safe(tab)} — existing records</summary><div id="main-legacy"></div></details>`:'';const old=view.innerHTML;view.innerHTML=`<div class="main-app">${banner()}${tab==='Office'?officeSummary():''}${tab==='Planner'?plannerBoard()+scheduleSummary():''}${workspace(kind)}${preparedServices(state.drafts[kind]?.values.property)}${legacy}</div>`;const el=document.getElementById('main-legacy');if(el){el.innerHTML=old;el.querySelectorAll('form').forEach(f=>f.remove());if(tab==='Planner'){el.querySelectorAll('[data-plan-filter]').forEach(b=>b.remove())}}restore();}
     else if(tab==='Equipment Registers')view.innerHTML=`<div class="main-app">${banner()}${equipmentRegister()}</div>`;
     else if(tab==='Property History'||tab==='Record Backup')view.innerHTML=`<div class="main-app">${banner()}${tab==='Property History'?historyPage():backupPage()}</div>`;
     else if(tab==='Properties'){view.innerHTML=`<div class="main-app">${banner()}${propertyDirectory()}</div>`;showProperties('');}
@@ -629,7 +673,7 @@
     speech.onresult=e=>{if(!speechTarget?.isConnected)return;const text=Array.from(e.results).map(r=>r[0].transcript).join(' ');speechTarget.value+=(speechTarget.value?'\n':'')+text;const reviewed=form.elements.namedItem('reviewed');if(reviewed)reviewed.checked=false;remember();document.getElementById('dictation-status').textContent='Draft transcript added. Engineer review is required.'};
     speech.onerror=()=>{const el=document.getElementById('dictation-status');if(el)el.textContent='Dictation stopped or unavailable. Type or use your keyboard microphone.'};speech.start();document.getElementById('dictation-status').textContent='Listening… select Stop dictation when finished.';
   }
-  document.addEventListener('input',e=>{if(e.target.dataset.equipmentField){const form=e.target.closest('form'),rows=JSON.parse(form.elements.equipment.value||'[]');rows[Number(e.target.closest('[data-equipment-index]').dataset.equipmentIndex)][e.target.dataset.equipmentField]=e.target.value;form.elements.equipment.value=JSON.stringify(rows)}});
+  document.addEventListener('input',e=>{if(e.target.dataset.equipmentField){const form=e.target.closest('form'),rows=JSON.parse(form.elements.equipment.value||'[]');rows[Number(e.target.closest('[data-equipment-index]').dataset.equipmentIndex)][e.target.dataset.equipmentField]=e.target.value;form.elements.equipment.value=JSON.stringify(rows);if(e.target.dataset.equipmentField==='result')e.target.closest('[data-equipment-index]').querySelectorAll('[data-equipment-result]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.equipmentResult===e.target.value)))}});
   document.addEventListener('input',e=>{if(e.target.id==='main-property-search')showProperties(e.target.value);const form=e.target.closest('form[data-main-form]');if(!form)return;if(form.dataset.mainScope!==scope()){message('Account changed. Reload before editing.');return}load();if(e.target.name!=='reviewed')form.elements.namedItem('reviewed').checked=false;remember();updatePreview(form)});
   document.addEventListener('submit',e=>{const form=e.target.closest('form[data-main-form]');if(!form)return;e.preventDefault();stopSpeech();if(form.dataset.mainScope!==scope()){message('Account changed. Reload this form before saving.');return}load();try{const r=saveRecord(form.dataset.mainForm,fields(form));const continuing=e.submitter?.name==='continueAppliance'&&r.revision===1&&!r.values.equipment;
       if(continuing){const v=r.values;commit(s=>s.drafts.pat={values:Object.fromEntries(['property','date','engineer','instrument','calibration','location','next'].map(k=>[k,v[k]||'']).concat([['asset',nextAsset(v.asset)],['reviewed','']])),editing:null,updated:now()})}
@@ -639,16 +683,23 @@
       const form=e.target.closest('form'),source=latestCompleted(state.records,form.dataset.mainForm,e.target.value);
       if(form.elements.equipment.value&&JSON.parse(form.elements.equipment.value).some(r=>r.description||r.location||r.readings||r.defects||r.result!=='Not Tested')&&!confirm('Changing property clears the current appliance checklist. Continue?')){e.target.value=JSON.parse(form.dataset.equipmentProperty||'""');return}
       if(JSON.parse(form.dataset.equipmentProperty||'""'))form.elements.equipment.value='';form.dataset.equipmentProperty=JSON.stringify(e.target.value);form.elements.reviewed.checked=false;if(form.elements.legacySource)form.elements.legacySource.value='';if(form.elements.repeatSource)form.elements.repeatSource.value='';paintEquipment(form);remember();
-      if(source&&!form.elements.equipment.value){form.elements.equipment.value=repeatValues(source).equipment||'';paintEquipment(form);remember();message('Previous completed appliance register loaded with Not Tested results.');}
+      if(source&&!form.elements.equipment.value){form.elements.equipment.value=repeatServiceValues(state.records,form.dataset.mainForm,e.target.value).equipment||'';paintEquipment(form);remember();message('Previous completed appliance register loaded with Not Tested results.');}
     }
     if(e.target.id==='main-history-property')showHistory(e.target.value);
     if(e.target.id==='main-import'&&e.target.files?.[0])try{if(e.target.files[0].size>10000000)throw Error('Backup exceeds 10 MB.');const data=JSON.parse(await e.target.files[0].text());if(!confirm('Merge this backup into the current workspace? Existing records and forms will not be overwritten.'))return;merge(data);render();message('Backup merged. Existing drafts were retained.')}catch(error){message('Import rejected: '+error.message)}
   });
   document.addEventListener('click',async e=>{
-    const b=e.target.closest('[data-main-legacy],[data-main-repeat],[data-main-repeat-visit],[data-equipment-single],[data-equipment-add],[data-equipment-identical],[data-equipment-remove],[data-main-calendar],[data-main-appliance],[data-main-report],[data-main-edit],[data-main-pdf],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-job-invoice],[data-main-word],[data-main-pack],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
+    const b=e.target.closest('[data-main-legacy],[data-main-repeat],[data-main-repeat-visit],[data-equipment-result],[data-equipment-single],[data-equipment-add],[data-equipment-identical],[data-equipment-remove],[data-main-calendar],[data-main-appliance],[data-main-report],[data-main-edit],[data-main-pdf],[data-main-print],[data-main-clear],[data-main-convert],[data-main-job-quote],[data-main-job-invoice],[data-main-word],[data-main-pack],[data-main-export],[data-main-raw],[data-main-upload],[data-main-cloud-list],[data-main-cloud-download],[data-main-dictate],[data-main-stop]');if(!b)return;
     load();try{
       if(b.dataset.mainLegacy){const [kind,index]=b.dataset.mainLegacy.split(':');const prepared=legacyDraft(kind,Number(index),b.dataset.legacyProperty);remember();if(state.drafts[prepared.kind]&&!confirm('Replace this unfinished form with a new legacy-source draft? Original history is retained.'))return;commit(s=>s.drafts[prepared.kind]={values:prepared.values,editing:null,updated:now()});document.querySelector('form[data-main-form]')?.removeAttribute('data-main-form');tab=Object.keys(pages).find(k=>pages[k]===prepared.kind);render();message('New draft from legacy stable details. Enter current results and review; original history is unchanged.');}
       else if(b.dataset.mainRepeat||b.dataset.mainRepeatVisit){const form=document.querySelector('form[data-main-form]');if(form?.dataset.mainScope!==scope())throw Error('Reload this form.');prepareRepeat(b.dataset.mainRepeat||b.dataset.mainRepeatVisit,form.elements.property.value,!!b.dataset.mainRepeatVisit);}
+      else if(b.hasAttribute('data-equipment-result')){
+        const form=b.closest('form');if(form.dataset.mainScope!==scope())throw Error('Reload this form.');
+        const row=b.closest('[data-equipment-index]'),control=row.querySelector('[data-equipment-field="result"]');
+        control.value=b.dataset.equipmentResult;control.dispatchEvent(new Event('input',{bubbles:true}));
+        row.querySelectorAll('[data-equipment-result]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.equipmentResult===control.value)));
+        if(control.value==='Fail')row.querySelector('[data-equipment-field="defects"]').focus();
+      }
       else if(b.hasAttribute('data-equipment-single')){const form=b.closest('form');if(form.dataset.mainScope!==scope())throw Error('Reload this form.');if(!confirm('Switch to single-asset entry and clear this unfinished checklist? Saved records remain.'))return;form.elements.equipment.value='';form.elements.reviewed.checked=false;paintEquipment(form);remember();}
       else if(b.hasAttribute('data-equipment-add')||b.hasAttribute('data-equipment-identical')||b.hasAttribute('data-equipment-remove')){
         const form=b.closest('form');if(form.dataset.mainScope!==scope())throw Error('Reload this form.');
@@ -689,10 +740,12 @@
       else if(b.hasAttribute('data-main-stop'))stopSpeech();
     }catch(error){message(error.message+' No existing cloud records were changed.')}
   });
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){remember();stopSpeech()}});
+  addEventListener('pagehide',()=>{remember();stopSpeech()});
   addEventListener('beforeunload',()=>{remember();stopSpeech()});
   addEventListener('storage',e=>{if(e.key===storageKey())message('Workspace changed in another tab. Reload before editing saved records; stale revisions cannot overwrite newer records.')});
   // Read-only test interface: no credentials or automatic cloud calls.
-  window.ParamountMainApp={servicePdf,totals,legacyHistory,legacyDraft,certificateHtml,repeatValues,latestCompleted,equipmentRows,equipmentSummary,optimiseRoute,calendarReminders,routeLink,wordDocument,registerRows,reminderRows,plannerGroups,jobPack,documentLines,refresh:()=>{if(team())state=read()},reload:()=>{state=null;render()},recordsPdf,nextAsset,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
+  window.ParamountMainApp={servicePdf,totals,repeatServiceValues,legacyHistory,legacyDraft,certificateHtml,repeatValues,latestCompleted,equipmentRows,equipmentSummary,optimiseRoute,calendarReminders,routeLink,wordDocument,registerRows,reminderRows,plannerGroups,jobPack,documentLines,refresh:()=>{if(team())state=read()},reload:()=>{state=null;render()},recordsPdf,nextAsset,parseMoney,rectangles,validDate,overlaps,validate,version:VERSION};
   render();
 })();
 

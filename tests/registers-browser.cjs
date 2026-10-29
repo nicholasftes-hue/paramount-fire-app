@@ -27,5 +27,23 @@ const server=http.createServer((req,res)=>{const f=path.resolve(root,new URL(req
   const legacy=await p.evaluate(()=>localStorage.getItem('paramount-demo-v1'));await tab('Property History');await p.locator('#main-history-property').selectOption('P001');await p.locator('[data-main-legacy]').first().click();assert.equal(await p.locator('[name=engineer]').inputValue(),'');assert.equal(await p.locator('[name=testState]').inputValue(),'Not Tested');assert.equal(await p.evaluate(()=>localStorage.getItem('paramount-demo-v1')),legacy);
   assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));assert.deepEqual(errors,[]);await p.screenshot({path:`test-results/registers-${width}.png`,fullPage:true});await context.close();console.log('PASS registers, repeat, legacy history, premium exports and layout',width);
  }
- const c=await browser.newContext({serviceWorkers:'block'});const p=await c.newPage();await p.goto(base+'/test-results/fictional-preview/index.html');await p.waitForFunction(()=>!!window.ParamountMainApp);assert.match(await p.locator('body').innerText(),/FICTIONAL DATA PREVIEW/);assert.equal(await p.evaluate(()=>CLOUD_URL),'https://fictional.invalid');assert.equal(await p.evaluate(()=>CLOUD_KEY),'FICTIONAL-NO-CREDENTIAL');await p.screenshot({path:'test-results/fictional-preview.png',fullPage:true});await c.close();
+ const c=await browser.newContext({serviceWorkers:'block'});const p=await c.newPage();p.on('dialog',d=>d.accept());await p.goto(base+'/test-results/fictional-preview/index.html');await p.waitForFunction(()=>!!window.ParamountMainApp);assert.match(await p.locator('body').innerText(),/FICTIONAL DATA PREVIEW/);assert.equal(await p.evaluate(()=>CLOUD_URL),'https://fictional.invalid');assert.equal(await p.evaluate(()=>CLOUD_KEY),'FICTIONAL-NO-CREDENTIAL');await p.screenshot({path:'test-results/fictional-preview.png',fullPage:true});
+ const previewTab=async t=>p.locator(`[data-tab="${t}"]:visible`).first().click();
+ const preserved=await p.evaluate(()=>JSON.parse(localStorage.getItem('paramount-fictional-main-v1:device-guest')).records);
+ await previewTab('PAT Testing');assert.equal(await p.locator('[data-equipment-field=id]').count(),3);
+ await p.locator('[data-equipment-result="Fail"]').first().click();assert.equal(await p.locator('[data-equipment-field=result]').first().inputValue(),'Fail');
+ assert.equal(await p.locator('[data-equipment-field=defects]').first().evaluate(el=>el===document.activeElement),true);
+ await p.locator('[data-equipment-field=defects]').first().fill('Fictional new defect');
+ await p.reload();await p.waitForFunction(()=>!!window.ParamountMainApp);await previewTab('PAT Testing');
+ assert.equal(await p.locator('[data-equipment-field=result]').first().inputValue(),'Fail');assert.equal(await p.locator('[data-equipment-field=defects]').first().inputValue(),'Fictional new defect');
+ await previewTab('Properties');await p.locator('[data-main-site-history="P001"]').click();assert.match(await p.locator('#main-history').innerText(),/Service overview/);
+ await p.locator('[data-main-site-repeat="P001"]').click();
+ for(const kind of ['service','pat','lighting','extinguisher']){
+  const values=await p.evaluate(kind=>JSON.parse(localStorage.getItem('paramount-fictional-main-v1:device-guest')).drafts[kind].values,kind);
+  assert.equal(values.serviceStatus,'In progress');assert.equal(values.engineerSignature,undefined);assert(JSON.parse(values.equipment).every(r=>r.result==='Not Tested'&&r.readings===''&&r.defects===''));
+ }
+ assert.deepEqual(await p.evaluate(()=>JSON.parse(localStorage.getItem('paramount-fictional-main-v1:device-guest')).records),preserved);
+ await p.locator('[data-main-site-register="P001"]').click();assert.match(await p.locator('#view').innerText(),/PAT-001/);
+ await previewTab('Quotes');await p.locator('[data-main-convert]').first().click();assert.equal(await p.locator('[name=source]').inputValue(),'FICTIONAL-Q-001');assert.equal(await p.locator('[name=number]').inputValue(),'');
+ await c.close();
  }catch(e){console.error(e);process.exitCode=1}finally{await browser?.close();server.close()}})();
