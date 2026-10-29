@@ -18,4 +18,5 @@ test('fictional preview seeds four independent untested registers, preserves his
  const crypto=require('node:crypto'),manifest=JSON.parse(fs.readFileSync('test-results/fictional-preview/SHA256SUMS.json'));
  for(const [file,hash]of Object.entries(manifest))assert.equal(crypto.createHash('sha256').update(fs.readFileSync('test-results/fictional-preview/'+file)).digest('hex'),hash);
  assert(fs.statSync('test-results/paramount-fictional-preview.zip').size>100000);
+ for(const asset of ['manifest.webmanifest','academy-test.html'])assert(fs.existsSync('test-results/fictional-preview/'+asset));
 });

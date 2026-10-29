@@ -4,7 +4,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 out=root/'test-results'/'fictional-preview'
 out.mkdir(parents=True,exist_ok=True)
-for name in ['index.html','index-3.html','main-app.js','main-app.css','pdf-font.js','academy.js','academy.css','icon-192.png','icon-512.png']:
+for name in ['index.html','index-3.html','main-app.js','main-app.css','pdf-font.js','academy.js','academy.css','academy-test.html','manifest.webmanifest','icon-192.png','icon-512.png']:
     shutil.copyfile(root/name,out/name)
 shutil.copytree(root/'templates',out/'templates',dirs_exist_ok=True)
 html=(out/'index-3.html').read_text()

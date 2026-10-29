@@ -73,3 +73,13 @@ new billing or delivery automation is claimed. All 22 lessons are preserved.
 No hosted permissions, signing/delivery infrastructure or production migrations
 were configured. Production Supabase, main, live hosting and Mark's demo remain
 untouched. No merge, deployment or publication.
+
+## CI follow-up
+
+Initial new-head CI passed the database, dependency audit, Node, Academy loader,
+certificate, register/mobile/preview, repeat, sync, signature and independent
+register document checks. The new property overview used the saved-record CSS
+class, causing the main-browser record-count assertion to include the overview;
+its class is corrected without weakening the assertion. The dependent service
+PDF fixture was not generated after that early exit. The preview now also
+bundles its linked manifest and Academy test page. Final-head CI is required.
