@@ -36,6 +36,12 @@ jobs:
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
       - if: ${{ !cancelled() }}
+        run: python3 scripts/prepare-fictional-preview.py
+      - if: ${{ !cancelled() }}
+        run: node tests/registers-browser.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - if: ${{ !cancelled() }}
         run: node tests/repeat-browser.cjs
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
@@ -59,6 +65,8 @@ jobs:
         run: python tests/templates.py
       - if: ${{ !cancelled() }}
         run: python tests/service-pdf.py
+      - if: ${{ !cancelled() }}
+        run: python tests/register-documents.py
       - if: ${{ !cancelled() }}
         run: python tests/controlled-pdf.py
       - if: ${{ !cancelled() }}

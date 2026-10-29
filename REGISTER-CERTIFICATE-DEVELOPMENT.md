@@ -1,0 +1,22 @@
+# Certificates, structured registers and legacy history — development only
+
+Continues verified source `2e7f7f6b8c72b47db167a10dd2cd27b222dd0af2` on `paramount-main-app-development`, draft PR #2 targeting `paramount-academy-update`. All 79 retrieved source blobs matched GitHub SHA-1 hashes. Local baseline snapshot commit is not a replacement for the remote ancestry.
+
+## Implementation
+
+- Fire certificates use grouped site, panel/battery, scope, device/results, defects/actions and signature sections. Print preview includes a navy brand header, blue section banners and draft stamp. Editable Word uses label/value tables, section bands, valid table grids and a repeating draft footer. PDFs use section bands, alternating result rows, Unicode embedding and draft/page/revision footers. Original inline app and Academy source are preserved.
+- Batch extinguisher servicing records unique IDs, serial, location, model, type/capacity, manufacture date, prior extended-service date, result, readings, defects, actions and next service date. Consolidated PDF/Word reports, save/resume, add/remove/identical items, single-asset mode and completed-service repetition reuse existing workflows. A duplicate item resets its unique identity and current evidence. Repeat retains the existing asset's serial but resets current evidence and dates. Frozen site details and all prior revisions remain.
+- Structured fire device rows record zone, loop/address, type, location, specification, result, actual readings, defects and actions. IDs and nonempty loop/address references must be unique. Each new saved device needs zone/type/location. Existing historical records remain readable. Repeat clears results and readings, preserving stable device identity.
+- Equipment registers enumerate batch assets independently; editing opens their parent service record.
+- Property History offers a new draft from preserved device prototype fire/PAT/lighting sources. It copies only stable details, retains exact source provenance and resets date, results, engineer, signatures and approval. Original arrays remain unchanged; legacy drafts never qualify as completed repeat sources. Shared device history is excluded from signed-in and team workspaces. Existing validated main-app backup imports retain historical revisions. No live production history is fetched or migrated.
+- `python scripts/prepare-fictional-preview.py` builds `test-results/fictional-preview` with a fictional property/history, separate storage keys, dummy cloud credentials and CSP blocking cloud connections, workers, frames and form submission. This is an unhosted local artifact; serve only on a fresh loopback origin. No deployment or hosting changes.
+
+## Validation
+
+- Initial CI run 40895650687 failed its certificate browser fixture: the single-entry assertion ran in batch mode. Its missing PAT PDF fixture caused the downstream PDF check to fail. Other browser, repeat/mobile, database, Node, template and signature checks passed. The fixture now explicitly selects single entry.
+- Local: 87 Node tests pass. Populated Word/quote PDF, blank editable Word and all fillable PDF fields, strict controlled PDF parsing and cryptographic signature checks pass. Structured-fire and batch-extinguisher PDFs parse strictly with all device/asset markers; Word table cells edit/save/reopen successfully.
+- Local browser startup remains blocked by loopback `listen EPERM` and Chromium crashpad socket restrictions. The additional-permission attempt was aborted. Full browser/mobile/offline/Word/PDF and disposable PostgreSQL validation is configured in the existing read-only GitHub Actions workflow, including new registers and preview fixtures. Remote results must be recorded after this commit runs.
+
+## Acceptance limits
+
+Physical Samsung/iOS device and actual Microsoft Word office acceptance, competent certificate/technical review, and real-data migration acceptance are outstanding. Production-history integration requires an authorized isolated export/mapping and review; no production Supabase query, migration or write was performed. This increment integrates preserved device history only. Existing isolated delivery/signature infrastructure retains its documented external configuration dependencies. No main, live app, Mark demo, production Supabase, merge or deployment changes.
