@@ -315,7 +315,7 @@
     const target=document.getElementById('main-history');if(!target)return;
     let html=list().filter(r=>r.values.property===id).map(recordCard).join('');
     const legacy=legacyHistory(id);
-    html+=`<h3>Existing device prototype records (${legacy.length})</h3><p>Original device records are preserved and have no new approval or certification status.</p>`+legacy.map(r=>`<article class="main-record"><b>${safe(r.kind)}</b>${['services','pat','lighting'].includes(r.kind)?`<button data-main-legacy="${safe(r.kind)}:${r.index}" data-legacy-property="${safe(id)}">Prepare new draft from stable details</button>`:''}${Object.entries(r.values).map(([k,v])=>`<p>${safe(k)}: ${safe(typeof v==='object'?JSON.stringify(v):v)}</p>`).join('')}</article>`).join('');
+    html+=`<h3>Existing prototype records (${legacy.length}) — this device</h3><p>Original device records are preserved and have no new approval or certification status.</p>`+legacy.map(r=>`<article class="main-record"><b>${safe(r.kind)}</b>${['services','pat','lighting'].includes(r.kind)?`<button data-main-legacy="${safe(r.kind)}:${r.index}" data-legacy-property="${safe(id)}">Prepare new draft from stable details</button>`:''}${Object.entries(r.values).map(([k,v])=>`<p>${safe(k)}: ${safe(typeof v==='object'?JSON.stringify(v):v)}</p>`).join('')}</article>`).join('');
     target.innerHTML=html||'<p>No history recorded.</p>';
   }
   function scheduleSummary() {
