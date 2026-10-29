@@ -13,7 +13,7 @@ html=re.sub(r"const CLOUD_KEY='[^']+'", "const CLOUD_KEY='FICTIONAL-NO-CREDENTIA
 html=re.sub(r'<script src="\./app-updates.js[^<]+</script>','',html)
 html=html.replace('</head>', '<meta http-equiv="Content-Security-Policy" content="default-src \'self\' data: blob:; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; connect-src \'none\'; worker-src \'none\'; frame-src \'none\'; form-action \'none\'"></head>',1)
 # A fresh storage namespace preserves any unrelated device data even on accidental origin reuse.
-html=html.replace('paramount-demo-v1','paramount-fictional-preview-v1')
+html=html.replace('paramount-demo-v1','paramount-fictional-preview-v1').replace('paramount-cloud-session','paramount-fictional-cloud-session')
 seed={'properties':[{'id':'P001','name':'FICTIONAL — Example House','address':'1 Example Lane','postcode':'TEST 1','panel':'Fictional panel','last':'2026-10-01','months':6}], 'services':[{'property':'P001','date':'2026-04-01','engineer':'Fictional legacy engineer','battery':'Not recorded','devices':'Not recorded','notes':'Fictional historical draft only'}], 'inventory':[], 'pat':[], 'lighting':[], 'quotes':[], 'jobs':[], 'settings':{}}
 workspace=json.loads((root/'scripts'/'fictional-preview-data.json').read_text())
 # Independent new-service examples contain stable asset details only.
@@ -34,6 +34,7 @@ script='<script>'+workspace_script+'if(!localStorage.getItem("paramount-fictiona
 html=html.replace('<body>', '<body>'+script+'<p style="background:#fff0bf;padding:12px">FICTIONAL DATA PREVIEW — LOCAL ONLY — CLOUD DISABLED</p>',1)
 (out/'index-3.html').write_text(html)
 p=out/'main-app.js';p.write_text(p.read_text().replace('paramount-main-app-v1:', 'paramount-fictional-main-v1:'))
+p=out/'academy.js';p.write_text(p.read_text().replace('paramount-academy-session-v1:', 'paramount-fictional-academy-session-v1:'))
 (out/'README.txt').write_text('UNDEPLOYED FICTIONAL PREVIEW\nServe only on a new loopback origin, e.g. python -m http.server 8769 --bind 127.0.0.1\nDo not reuse the live or Mark demo origin. Network connections, workers, frames and forms are blocked by CSP.\nNo production credentials or customer data are included. No hosting was created.\n')
 (out/'TEST-GUIDE.txt').write_text('FICTIONAL PREVIEW TEST GUIDE\nOpen Properties > Services / dates / defects. Review historical services and overdue dates.\nOpen PAT, lighting, fire alarm and extinguisher forms to resume prepared Not Tested examples.\nChange, add and remove equipment; reload to check local resume. Enter current fictional results before saving.\nUse Repeat Entire Property Visit to reset all prepared services. Original records must remain unchanged.\nReview/edit the fictional quotation and prepare an invoice. Download Word/PDF drafts.\nAll 22 Academy lessons remain available. Browser storage must be enabled.\nThis static preview blocks cloud, workers and external connections; it does not demonstrate offline reload caching.\nUse the app regression suite for service-worker offline acceptance. Do not upload to a live or existing demo origin.\n')
 manifest={str(p.relative_to(out)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(out.rglob('*')) if p.is_file() and p.name!='SHA256SUMS.json'}

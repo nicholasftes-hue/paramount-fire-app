@@ -83,3 +83,6 @@ class, causing the main-browser record-count assertion to include the overview;
 its class is corrected without weakening the assertion. The dependent service
 PDF fixture was not generated after that early exit. The preview now also
 bundles its linked manifest and Academy test page. Final-head CI is required.
+
+Preview authentication session and Academy progress namespaces are also isolated;
+existing origin sessions are never read or cleared by the generated preview.
