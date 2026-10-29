@@ -14,8 +14,8 @@ Continues verified source `2e7f7f6b8c72b47db167a10dd2cd27b222dd0af2` on `paramou
 ## Validation
 
 - Initial CI run 40895650687 failed its certificate browser fixture: the single-entry assertion ran in batch mode. Its missing PAT PDF fixture caused the downstream PDF check to fail. Other browser, repeat/mobile, database, Node, template and signature checks passed. The fixture now explicitly selects single entry.
-- Local: 87 Node tests pass. Populated Word/quote PDF, blank editable Word and all fillable PDF fields, strict controlled PDF parsing and cryptographic signature checks pass. Structured-fire and batch-extinguisher PDFs parse strictly with all device/asset markers; Word table cells edit/save/reopen successfully.
-- Local browser startup remains blocked by loopback `listen EPERM` and Chromium crashpad socket restrictions. The additional-permission attempt was aborted. Full browser/mobile/offline/Word/PDF and disposable PostgreSQL validation is configured in the existing read-only GitHub Actions workflow, including new registers and preview fixtures. Remote results must be recorded after this commit runs.
+- Local: 88 Node tests pass. Populated Word/quote PDF, blank editable Word and all fillable PDF fields, strict controlled PDF parsing and cryptographic signature checks pass. Structured-fire and batch-extinguisher PDFs parse strictly with all device/asset markers; Word table cells edit/save/reopen successfully.
+- Local browser startup remains blocked by loopback `listen EPERM` and Chromium crashpad socket restrictions. The additional-permission attempt was aborted. Full browser/mobile/offline/Word/PDF and disposable PostgreSQL validation is configured in the existing read-only GitHub Actions workflow, including new registers and preview fixtures. Commit `5c4df30bc7c89e4ebaac8ef4c90c42bb9c5c408a` passed the browser/register/preview checks in run 40902492633; final exact-head results are maintained in draft PR #2. The preview generator now inserts its banner/CSP only in the actual document, preserves print templates, includes blank document templates and has inline-script syntax coverage.
 
 ## Acceptance limits
 

@@ -493,7 +493,7 @@
     const v=r.values,site=r.siteSnapshot||siteDetails(property(v.property));
     const headings=['SITE / CUSTOMER','SYSTEM / PANEL / BATTERIES','SERVICE SCOPE','DEVICE REGISTER / ACTUAL RESULTS','DEFECTS / LIMITATIONS / ACTIONS','DRAFT SIGNATURE ACKNOWLEDGEMENTS'];
     const used=new Set(['property','reviewed',...signatureFields]);
-    const field=k=>{used.add(k);if(k==='tests'&&v.equipment&&v.tests===equipmentSummary(equipmentRows(v.equipment)))return null;return v[k]!==undefined?(fieldLabels[k]||k)+': '+(k==='equipment'?equipmentRows(v[k]).map((row,i)=>'Asset '+(i+1)+' — '+row.id+'\n'+editorColumns(r.kind).filter(k=>k!=='id'&&row[k]).map(k=>(fieldLabels[k]||k)+': '+row[k]).join(' | ')).join('\n\n'):v[k]):null};
+    const field=k=>{used.add(k);if(k==='tests'&&v.equipment&&v.tests===equipmentSummary(equipmentRows(v.equipment)))return null;return v[k]!==undefined?(fieldLabels[k]||k)+': '+(k==='equipment'?equipmentRows(v[k]).map((row,i)=>'Asset '+(i+1)+' — '+row.id+'\n'+editorColumns(r.kind).filter(k=>k!=='id'&&row[k]).map(k=>(({zone:'Zone',address:'Loop / address',deviceType:'Device type',location:'Location',specification:'Specification',result:'Result',readings:'Actual readings',serial:'Serial',model:'Manufacturer / model',capacity:'Type / capacity',manufactured:'Manufactured',lastTest:'Previous extended service',next:'Next agreed service'})[k]||fieldLabels[k]||k)+': '+row[k]).join(' | ')).join('\n\n'):v[k]):null};
     const group=(title,keys)=>['',title,...keys.map(field).filter(x=>x!==null)];
     return [r.kind==='service'?'Fire alarm service certificate — DRAFT':names[r.kind]+' — DRAFT','Reference: '+r.id,'Revision: '+r.revision,'Saved: '+r.updated,
       '',headings[0],...(!r.siteSnapshot?['Legacy record: current site details; no original site snapshot.']:['Site details recorded at first save:']),...Object.entries(site).filter(([k])=>k!=='id').map(([k,v])=>k+': '+v),
@@ -558,7 +558,7 @@
     const normal=text=>Array.from(String(text).replace(/\r\n?/g,'\n')).map(c=>c==='\n'||font.cmap[c.codePointAt(0)]?c:'[U+'+c.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')+']').join('');
     const wrap=line=>normal(line).split('\n').flatMap(part=>{let chars=Array.from(part),out=[];while(chars.length>86){let n=chars.slice(0,86).lastIndexOf(' ');if(n<1)n=86;out.push(chars.slice(0,n).join(''));chars=chars.slice(n);if(chars[0]===' ')chars.shift()}return [...out,chars.join('')]});
     const pages=[];
-    for(const r of records){const lines=documentLines(r).flatMap(wrap);for(let i=0;i<lines.length;i+=43)pages.push({r,lines:lines.slice(i,i+43)})}
+    for(const r of records){const lines=documentLines(r).flatMap(wrap);for(let i=0;i<lines.length;i+=47)pages.push({r,lines:lines.slice(i,i+47)})}
     const glyphs=new Map();
     const hex4=n=>n.toString(16).padStart(4,'0');
     const unicode=c=>Array.from(c).map(ch=>{const n=ch.codePointAt(0);return n<=65535?hex4(n):hex4(0xd800+((n-65536)>>10))+hex4(0xdc00+((n-65536)&1023))}).join('');
