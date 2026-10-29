@@ -28,7 +28,7 @@ function worker() {
 
 test('offline installation includes every shell asset and both PWA icons',async()=>{
   const w=worker();await w.lifecycle('install');
-  for(const path of ['index.html','index-3.html','academy.js','academy.css','app-updates.js', 'main-app.js', 'main-app.css','manifest.webmanifest','icon-192.png','icon-512.png','academy-test.html', 'templates/Paramount_Quotation_Editable.docx', 'templates/Paramount_Quotation_Fillable.pdf', 'templates/Paramount_Invoice_Editable.docx', 'templates/Paramount_Invoice_Fillable.pdf']) {
+  for(const path of ['index.html','index-3.html','academy.js','academy.css','app-updates.js', 'main-app.js', 'document-templates.js', 'main-app.css','manifest.webmanifest','icon-192.png','icon-512.png','academy-test.html', 'templates/Paramount_Quotation_Editable.docx', 'templates/Paramount_Quotation_Fillable.pdf', 'templates/Paramount_Invoice_Editable.docx', 'templates/Paramount_Invoice_Fillable.pdf']) {
     assert(w.stored.has('https://example.test/app/'+path));assert(fs.existsSync(path));
   }
   assert.equal(w.skipped,0);w.message('ignored');assert.equal(w.skipped,0);
@@ -58,7 +58,7 @@ test('temporary HTTP failure serves the cached shell when available',async()=>{
 
 test('activation deletes only obsolete Paramount caches',async()=>{
   const w=worker();await w.lifecycle('activate');
-  assert.deepEqual(w.deleted,['paramount-shell-academy-v1','paramount-demo-v1','paramount-shell-main-app-v13']);assert.equal(w.claimed,1);
+  assert.deepEqual(w.deleted,['paramount-shell-academy-v1','paramount-demo-v1','paramount-shell-main-app-v13','paramount-shell-main-app-v14']);assert.equal(w.claimed,1);
 });
 
 

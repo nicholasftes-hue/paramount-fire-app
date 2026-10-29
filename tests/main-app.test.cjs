@@ -192,3 +192,29 @@ test('exact driving optimisation uses asymmetric edges, retains all stops, repor
  assert.throws(()=>api.optimiseRoute(rows,{...m,seconds:[[0,-1],[]]},'a','d'));
  assert.throws(()=>api.optimiseRoute([{...rows[0],values:{...visit,date:'2026-11-02'}},...rows.slice(1)],m,'a','d'));
 });
+
+test('same-day visits remain separate, repeat creates fresh identity and job packs use exact visit',()=>{
+ const {api}=harness();
+ const first=api.saveRecord('quote',{...commercial,number:'VQ1',visitId:'VISIT-ONE',branding:'absolute'});
+ const second=api.saveRecord('quote',{...commercial,number:'VQ2',visitId:'VISIT-TWO'});
+ assert.notEqual(first.values.visitId,second.values.visitId);
+ const pack=api.jobPack({kind:'visit',values:{...visit,visitId:'VISIT-ONE'}});
+ assert.match(pack,/VQ1/);assert.doesNotMatch(pack,/VQ2/);
+ assert.throws(()=>api.saveRecord('quote',{...commercial,property:'P1',number:'bad',visitId:'../bad'}),/visit ID/);
+ const source={id:'completed',kind:'pat',values:{property:'P1',date:'2026-10-26',serviceStatus:'Completed',asset:'A',appliance:'Drill',branding:'absolute',templateRef:'immutable-v1',visitId:'OLD',outcome:'Pass',engineerSignature:'OLD'}};
+ const repeated=api.repeatValues(source);assert.equal(repeated.branding,'absolute');assert.equal(repeated.templateRef,'immutable-v1');assert.notEqual(repeated.visitId,'OLD');assert.equal(repeated.outcome,undefined);assert.equal(repeated.engineerSignature,undefined);
+});
+test('same-day single-asset repeat never aggregates a different explicit visit or ambiguous legacy records',()=>{
+ const {api}=harness();const row=(id,visitId,updated)=>({id,kind:'pat',updated,values:{property:'P1',date:'2026-10-26',serviceStatus:'Completed',asset:id,appliance:'Drill',...(visitId?{visitId}:{})}});
+ const rows=[row('old','MORNING','2026-10-26T09:00:00Z'),row('latest','AFTERNOON','2026-10-26T15:00:00Z'),row('legacy','','2026-10-26T08:00:00Z')];
+ assert.deepEqual(JSON.parse(api.repeatServiceValues(rows,'pat','P1').equipment).map(r=>r.id),['latest']);
+});
+test('both brands export true contractor and issuer with revision-safe original branding',()=>{
+ const {api}=harness();const first=api.saveRecord('quote',{...commercial,branding:'absolute'});
+ const text=api.documentLines(first).join('\n');assert.match(text,/Absolute Property Surveys/);assert.match(text,/Service provider \/ contractor: Paramount Fire Protection/);assert.match(text,/Certificate issuer: Paramount Fire Protection/);
+ api.setEditing({id:first.id,revision:1});const second=api.saveRecord('quote',{...first.values,branding:'paramount'});
+ assert.equal(second.history[0].values.branding,'absolute');assert.equal(first.values.branding,'absolute');
+ fs.mkdirSync('test-results',{recursive:true});fs.writeFileSync('test-results/absolute-brand-draft.docx',api.wordDocument(first));fs.writeFileSync('test-results/absolute-brand-draft.pdf',api.recordsPdf([first]));fs.writeFileSync('test-results/paramount-brand-draft.pdf',api.recordsPdf([second]));
+ assert.match(new TextDecoder().decode(api.wordDocument(first)),/ABSOLUTE PROPERTY SURVEYS/);
+ assert.throws(()=>api.validate('quote',{...commercial,branding:'invented'}),/branding/);
+});

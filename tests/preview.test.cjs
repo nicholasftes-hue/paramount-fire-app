@@ -9,7 +9,10 @@ test('fictional preview seeds four independent untested registers, preserves his
  const seed=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m=>m[1].includes('paramount-fictional-main-v1:device-guest'));
  vm.runInNewContext(seed[1],{localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)}});
  const data=JSON.parse(storage.get('paramount-fictional-main-v1:device-guest'));
- assert.equal(data.records.length,6);
+ assert.equal(data.records.length,7);
+ const sameDay=data.records.filter(r=>r.kind==='service');assert.equal(sameDay.length,2);assert.equal(sameDay[0].values.date,sameDay[1].values.date);assert.notEqual(sameDay[0].values.visitId,sameDay[1].values.visitId);
+ const templates=JSON.parse(storage.get('paramount-fictional-templates-v1:device-guest'));assert.equal(templates.length,1);assert.equal(data.drafts.service.values.templateRef,templates[0].id);assert.equal(data.drafts.service.values.branding,'absolute');
+ assert.doesNotMatch(fs.readFileSync('test-results/fictional-preview/document-templates.js','utf8'),/['"]paramount-templates-v1:/);
  for(const kind of ['service','pat','lighting','extinguisher']){
   const v=data.drafts[kind].values;assert.equal(v.reviewed,'');assert.equal(v.engineerSignature,undefined);assert.equal(v.serviceStatus,'In progress');
   for(const row of JSON.parse(v.equipment)){assert.equal(row.result,'Not Tested');assert.equal(row.readings,'');assert.equal(row.defects,'')}
