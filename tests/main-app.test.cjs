@@ -18,6 +18,23 @@ function harness(storage=new Map()){
 }
 const commercial={property:'P1',date:'2026-10-26',due:'2026-11-26',number:'Q1',customer:'Fictional customer',address:'Fictional address',lines:'Service | 3 | 0.10',vat:'20',vatNumber:'TEST ONLY',terms:'Draft only',reviewed:'yes'};
 const visit={property:'P1',date:'2026-11-01',engineer:'Engineer A',time:'09:00',minutes:'60',serviceType:'Fire alarm',status:'Confirmed',notes:'Fictional visit',reviewed:'yes'};
+test('backup restores partial offline forms once without replacing current work',()=>{
+ const a=harness();a.api.load();const backup=a.api.exportData();
+ backup.drafts={lighting:{values:{property:'P1',results:'Partial offline reading',reviewed:''},editing:null,updated:'2026-10-30T10:00:00Z'}};
+ const b=harness();b.api.merge(backup);assert.equal(b.api.read().drafts.lighting.values.results,'Partial offline reading');
+ backup.drafts.lighting.values.results='Older backup';b.api.merge(backup);
+ assert.equal(b.api.read().drafts.lighting.values.results,'Partial offline reading');
+ const reloaded=harness(b.storage);reloaded.api.load();assert.equal(reloaded.api.exportData().drafts.lighting.values.reviewed,'');
+});
+test('draft recovery rejects malformed and stale editing sources atomically',()=>{
+ const a=harness();a.api.saveRecord('quote',commercial);const backup=JSON.parse(JSON.stringify(a.api.exportData()));
+ const d={values:{property:'P1',number:'Unfinished'},editing:{id:backup.records[0].id,revision:1},updated:'2026-10-30T10:00:00Z'};
+ backup.drafts={quote:d};const b=harness();b.api.merge(backup);assert.equal(b.api.read().drafts.quote.editing.revision,1);
+ for(const drafts of [[],{unknown:d},{quote:{...d,updated:'bad'}},{quote:{...d,values:[]}}, {quote:{...d,values:{reviewed:true}}},{quote:{...d,editing:{...d.editing,revision:2}}}]){
+   const target=harness();assert.throws(()=>target.api.merge({...backup,drafts}),/unfinished form/);assert.equal(target.api.read().records.length,0);
+ }
+ const other=harness();other.context.cloudSession={user:{id:'other-account'}};assert.throws(()=>other.api.merge(backup),/signed-in account/);assert.equal(other.storage.size,0);
+});
 test('commercial arithmetic uses pence and document-level rounded VAT',()=>{
  const {api}=harness();const t=api.totals(commercial);assert.equal(t.subtotal,30);assert.equal(t.tax,6);assert.equal(t.total,36);
  assert.equal(api.totals({...commercial,lines:'A | 1 | 10.01\nB | 2 | 2.55',vat:'17.5'}).total,1775);
