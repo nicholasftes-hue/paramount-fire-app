@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import time
+import uuid
 from urllib.parse import urlparse, quote
 from urllib.request import Request, urlopen
 
@@ -19,7 +20,10 @@ SCHEMAS = ('paramount_sync', 'auth', 'storage')
 def validate(config):
     assert config['version'] == 1
     assert config['synthetic_only'] is True and config['owner_approved_disposable'] is True
-    assert config['owner'] and config['source_sha'] and config['approval_reference']
+    assert config['owner'] and config['approval_reference']
+    assert re.fullmatch(r'[a-f0-9]{40}', config['source_sha'])
+    assert config['synthetic_user_ids'] and len(set(config['synthetic_user_ids'])) == len(config['synthetic_user_ids'])
+    assert all(str(uuid.UUID(u)) == u for u in config['synthetic_user_ids'])
     assert config['rpo_seconds'] >= 0 and config['rto_seconds'] > 0
     refs = [config[k] for k in ('source_ref', 'target_ref')]
     assert len(set(refs)) == 2
@@ -40,7 +44,9 @@ def environment(config, side):
     assert url.port in (None, 5432) and url.path == '/postgres' and not url.query and not url.fragment
     assert url.username == 'postgres' and url.password
     from urllib.parse import unquote
-    return {**os.environ, 'PGHOST': url.hostname, 'PGPORT': '5432', 'PGDATABASE': 'postgres',
+    # Strip inherited libpq selectors: PGHOSTADDR/PGSERVICE could redirect a validated host.
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith('PG')}
+    return {**clean_env, 'PGSSLROOTCERT': os.environ.get('PGSSLROOTCERT', '/etc/ssl/certs/ca-certificates.crt'), 'PGHOST': url.hostname, 'PGPORT': '5432', 'PGDATABASE': 'postgres',
             'PGUSER': 'postgres', 'PGPASSWORD': unquote(url.password), 'PGSSLMODE': 'verify-full',
             'PGCONNECT_TIMEOUT': '15', 'PGOPTIONS': '-c statement_timeout=60000'}
 

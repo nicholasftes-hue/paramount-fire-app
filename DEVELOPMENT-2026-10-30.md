@@ -153,3 +153,11 @@ approval tests remain NOT RUN; this environment has no credentials/identities.
 PR #2 stays open and draft, base paramount-academy-update. No merge/deploy or
 changes to main, production Supabase, live app or Mark's demo. Human approvals
 are outstanding, not requested as a substitute for implementation work.
+
+Checkpoint `395ed85` / CI 41115886477 exposed two acceptance harness issues:
+psql renders SQL NULL as no output (the no-second-claim assertion expected JSON
+null), and Ubuntu auto-started freshclam held its log lock. Corrected the empty
+claim assertion and stopped only the disposable runner updater before the
+explicit freshclam run. No security gate was weakened. Also tightened hosted
+manifest SHA/synthetic-identity checks and stripped inherited libpq routing
+selectors so PGHOSTADDR/PGSERVICE cannot redirect an approved project target.

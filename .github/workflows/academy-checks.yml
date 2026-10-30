@@ -137,6 +137,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y clamav
+          sudo systemctl stop clamav-freshclam
           sudo freshclam --stdout
       - name: Verify real scanner quarantine
         run: node tests/antivirus-acceptance.cjs

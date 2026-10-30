@@ -33,7 +33,7 @@ for user in [users[0],users[1]]:
  as_user(user,'select * from paramount_sync.template_scans',False)
 claim=json.loads(as_user('','select public.paramount_template_scan_claim()',role='service_role')[-1])
 assert base64.b64decode(claim['content'])==blob
-assert as_user('','select public.paramount_template_scan_claim()',role='service_role')==['null']
+assert not as_user('','select public.paramount_template_scan_claim()',role='service_role')
 def finish(lease,clean=True,fields=payload['fields'],role='service_role',ok=True):
  return as_user('',f"select public.paramount_template_scan_finish({literal(w)},{literal(hash_value)},'pdf',{literal(lease)},{str(clean).lower()},{literal(json.dumps(fields))}::jsonb,'fictional-test-scanner')",ok,role)
 finish(claim['lease'],role='authenticated',ok=False)
