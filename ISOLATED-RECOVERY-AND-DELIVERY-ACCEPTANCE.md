@@ -7,6 +7,11 @@ fake transports. Record exact SHA, CI URL and evidence hashes for every run.
 
 ## Automated acceptance
 
+`python3 scripts/verify-source-backup.py` verifies the source ZIP checksum, rejects
+unsafe/duplicate/missing archive members, extracts into a temporary directory and
+compares every file to its exact Git blob hash. It never runs restored code. CI
+runs it immediately after source archiving.
+
 `python tests/team-sync-db.py` creates a disposable synthetic auth/workspace schema,
 runs existing role/CAS/issue/verification/queue/template regressions, then executes
 `tests/backup-restore-db.py`. The latter uses `pg_dump` custom format, SHA-256,
@@ -36,6 +41,10 @@ provider is mocked: provider acceptance is not inbox delivery. Existing database
 tests cover private queue/claim fencing, verification lockout, replay/revocation,
 idempotent acceptance and reminder scheduling. No real email is sent.
 
+CI run 41104765917, head `17f1ce9`, passed the entire disposable database
+job including the new backup/restore drill. This is synthetic PostgreSQL
+acceptance only; the hosted rows below remain pending.
+
 ## Hosted recovery and real mailbox checks still required
 
 These gates remain **NOT EXECUTED**. They need an owner-provisioned isolated hosted
@@ -45,7 +54,7 @@ production project or live app. Do not run a restored queue against a real sende
 
 | Check | Required evidence | Current result |
 |---|---|---|
-| Source recovery | Recover exact commit from retained source ZIP; verify checksum/tree, tests and all binary assets | Local exact-tree recovery passed; retained CI ZIP recovery pending |
+| Source recovery | Recover exact commit from retained source ZIP; verify checksum/tree, tests and all binary assets | Local ZIP extraction and all 114 baseline blob hashes passed; CI archive verifier added |
 | Hosted data recovery | Owner-approved backup to separate project; records/revisions, auth mapping, ACLs, templates/originals, audit and storage compare | Pending isolated hosted configuration |
 | Recovery objective | Measured backup age/RPO and complete restore time/RTO versus owner-approved targets | Targets/measurements pending |
 | Quarantine gate | Updated antivirus database; infected/malformed/timeout/missing-scanner fixtures remain quarantined; server publication requires trusted scan of exact hash | Local scanner prepared; enforced hosted publication gate pending |

@@ -89,6 +89,7 @@ jobs:
         run: |
           git archive --format=zip --output=paramount-main-app-backup.zip HEAD
           sha256sum paramount-main-app-backup.zip > paramount-main-app-backup.zip.sha256
+          python3 scripts/verify-source-backup.py
       - uses: actions/upload-artifact@v4
         with:
           name: paramount-main-app-source-backup

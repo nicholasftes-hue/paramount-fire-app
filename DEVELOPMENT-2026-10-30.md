@@ -32,6 +32,8 @@ content, both brands and save/reopen pass. Populated service/quote and mapped
 Word editing/save/reopen pass; both branded PDFs render independently with PDFium.
 Blank Word and all 88 fillable PDF fields pass. Extinguisher/installation strict
 PDF/Word tests pass. Controlled evidence and cryptographic PDF checks pass.
+A source ZIP was restored into a separate temporary directory: checksum, member
+set and all 114 baseline Git blob hashes matched; the verifier is wired into CI.
 Tracked-source credential patterns, all JavaScript parsing, SQL isolation/search
 paths and private-cache boundary checks pass. Local quarantine CLI correctly
 returns blocked without an available antivirus service. Injected scanner tests
@@ -44,8 +46,13 @@ but the legacy async check set process exit code 1. Earlier test-count-only
 statements overstated full-suite success. The assertion now checks the complete
 actual ordered module list, including imported PDF and the updated template
 module query version; local process exit 0 is verified. That checkpoint's
-browser/document suites and disposable database job passed. Next-head CI must
-verify the added shared browser scenarios and full backup/restore drill.
+browser/document suites and disposable database job passed. Continuation run 41104765917 for head `17f1ce9` passed its disposable database
+job, including the complete pg_dump/restore drill, exact table hashes, original
+bytes, permission denials and unchanged source database. Its new browser fixture initially failed because selecting a template correctly
+cleared the human-review checkbox after the fixture had ticked it. The fixture
+now asserts that reset, then explicitly reviews the selected template before
+saving. This preserves the safety behaviour; no validation was weakened.
+Final-head CI must verify the corrected fixture and added archive verifier.
 
 Local browser startup is blocked by Chromium setsockopt denial; local database
 runner is blocked by missing psql. No local browser/database success is claimed.
