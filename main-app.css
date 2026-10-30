@@ -1,0 +1,22 @@
+.main-banner{background:#edf8ff;border:1px solid #b9dff3;border-radius:12px;padding:14px;margin:14px 0}.main-banner p{margin:5px 0}.main-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.main-grid>*{min-width:0}.main-wide{grid-column:1/-1}.main-actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.main-record{border:1px solid #dbe6ed;border-radius:12px;padding:15px;margin:12px 0;overflow-wrap:anywhere}.main-record p{white-space:pre-wrap}.main-record h3{margin:0}.main-app label{font-size:14px}.main-app input,.main-app select,.main-app textarea{font-size:16px;min-height:46px}.main-app textarea{min-height:100px}.main-app button{min-height:44px}.main-app input[type=checkbox]{width:22px;min-height:22px;vertical-align:middle}.main-app summary{cursor:pointer;padding:12px;font-weight:700}.main-app svg{width:100%;height:auto;background:#f6fafc;border:1px solid #b9cbd8;touch-action:manipulation}.main-app .main-status{white-space:pre-wrap;color:#7b3600}.main-app :focus-visible{outline:3px solid #148dc9;outline-offset:3px}.main-app .main-muted{color:#526c7d}.main-app .main-total{font-size:21px;font-weight:800}.main-app .main-check{display:flex;gap:10px;align-items:flex-start}.main-app .main-check input{flex:none}.main-app h2{overflow-wrap:anywhere}@media(max-width:600px){.main-grid{grid-template-columns:1fr}.main-wide{grid-column:auto}.main-actions>*{flex:1 1 140px}.main-app .panel{padding:14px}.main-app h2{font-size:20px}}@media print{.main-actions,.main-banner{display:none}}
+
+
+.main-app fieldset{min-width:0;border:1px solid #b9dff3;border-radius:10px;padding:14px}.main-app legend{font-weight:700;color:#173b5c}.main-app fieldset input{box-sizing:border-box;width:100%}.main-app fieldset p{margin-top:0}
+
+
+.main-dashboard{max-width:1100px;margin:auto}.main-hero{background:linear-gradient(125deg,#102b46,#174c76);color:#fff;border-radius:18px;padding:26px;margin:16px 0;border-bottom:5px solid #51b9ec}.main-hero h2{font-size:30px;color:#fff;margin:10px 0}.main-hero>p:first-child{letter-spacing:.12em;font-size:12px;font-weight:700}.main-hero button{background:#e7f6ff;color:#12304b;border:1px solid #8bd6fa;font-weight:700}.main-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}.main-stats button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:8px;background:#fff;color:#173b5c;border:1px solid #bddff0;border-top:4px solid #38a8dc;border-radius:12px;padding:18px;min-width:0}.main-stats strong{font-size:30px}.main-stats span{font-size:14px;overflow-wrap:anywhere}.main-dashboard .panel{border:1px solid #d4e6f0;box-shadow:0 4px 18px #102b4608}.main-dashboard a{display:inline-flex;align-items:center;min-height:44px;color:#125780;font-weight:700}.main-dashboard button{cursor:pointer}.main-dashboard .main-record{background:#f6fbfe}@media(max-width:600px){.main-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.main-stats button{padding:14px}.main-hero{padding:20px}.main-hero h2{font-size:26px}}
+
+/* Field checklists fit phones without horizontal scrolling. */
+[data-equipment-rows] fieldset {min-width:0;margin:12px 0;border:1px solid #9acfe8;border-radius:10px;padding:12px} .main-app fieldset {min-width:0} .main-app [hidden] {display:none!important} .main-app button,.main-app select {min-height:44px} [data-main-repeat] {background:#123854;color:white;font-weight:700} [data-equipment-rows] input {width:100%;min-width:0}
+
+[data-equipment-result][aria-pressed=true]{background:#123854;color:#fff;outline:3px solid #39a9dc;outline-offset:1px}.main-app [data-equipment-result]{min-height:48px;touch-action:manipulation}
+
+/* Uploaded-template controls remain usable at narrow phone widths. */
+[data-template-library-panel] { max-width:100%; overflow-wrap:anywhere; padding:12px; border:1px solid #c8dce9; }
+[data-template-library-panel] article { margin-block:16px; padding-block:12px; border-top:1px solid #c8dce9; }
+[data-template-library-panel] input, [data-template-library-panel] select { max-width:100%; min-width:0; box-sizing:border-box; }
+.main-grid fieldset select { max-width:100%; min-width:0; }
+/* Imported field names and shared templates must fit narrow mobile screens. */
+[data-template-library-panel] fieldset { min-width: 0; }
+[data-template-library-panel] label { overflow-wrap: anywhere; }
+[data-template-library-panel] select { max-width: 100%; min-width: 0; }

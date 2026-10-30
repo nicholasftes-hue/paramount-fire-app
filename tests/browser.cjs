@@ -20,7 +20,7 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
   res.setHeader('Cache-Control','no-store');
   let body=fs.readFileSync(file);
-  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-academy-v5','paramount-shell-academy-test-old'));
+  if(oldWorker&&relative==='service-worker.js')body=Buffer.from(body.toString().replace('paramount-shell-main-app-v8','paramount-shell-academy-test-old'));
   res.end(body);
 });
 
@@ -33,7 +33,7 @@ async function allSubjects(page){
 }
 async function lesson(page,id){
   await allSubjects(page);
-  await page.locator(`[data-academy-subject="${id.startsWith('fire')?'fire':'cctv'}"]`).click();
+  await page.locator(`[data-academy-subject="${id.split('-')[0]}"]`).click();
   await page.locator(`[data-academy-lesson="${id}"]`).click();
   await page.locator('#academy-quiz').waitFor();
 }
@@ -66,21 +66,21 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
       assert.equal(await page.locator('.academy-card').count(),6);
       assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
     });
-    await check('six subject cards, coming-soon paths and return focus',async()=>{
+    await check('six subject cards, all levels and return focus',async()=>{
       for(const id of ['fire','cctv','electrical','intruder','lighting','skills']){
         await page.locator(`[data-academy-subject="${id}"] .academy-title`).click();
         assert(await page.locator('#academy-content h3').isVisible());
         assert.equal(await page.locator('#academy-content h3').evaluate(el=>el===document.activeElement),true);
         if(!['fire','cctv'].includes(id)){
-          assert.match(await page.locator('#academy-content').innerText(),/Lessons are not available yet/);
-          assert.equal(await page.locator('[data-academy-lesson]').count(),0);
+          assert.match(await page.locator('#academy-content').innerText(),/Intermediate/);
+          assert.equal(await page.locator('[data-academy-lesson]').count(),3);
         }
         await page.locator('[data-academy-home]').click();
         assert.equal(await page.locator(`[data-academy-subject="${id}"]`).evaluate(el=>el===document.activeElement),true);
       }
     });
-    await check('all six quizzes validate missing answers, explain failures, retry and save tab progress',async()=>{
-      for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]})){
+    await check('all 22 quizzes validate missing answers, explain failures, retry and save tab progress',async()=>{
+      for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2], 'electrical-safety':[1,2,0,1,2,0], 'intruder-basics':[1,2,0,1,2,0], 'lighting-basics':[1,2,0,1,2,0], 'skills-diagnosis':[1,2,0,1,2,0],'fire-intermediate':[0,1,2,0,1,2],'fire-advanced':[0,1,2,0,1,2],'cctv-intermediate':[0,1,2,0,1,2],'cctv-advanced':[0,1,2,0,1,2],'electrical-intermediate':[0,1,2,0,1,2],'electrical-advanced':[0,1,2,0,1,2],'intruder-intermediate':[0,1,2,0,1,2],'intruder-advanced':[0,1,2,0,1,2],'lighting-intermediate':[0,1,2,0,1,2],'lighting-advanced':[0,1,2,0,1,2],'skills-intermediate':[0,1,2,0,1,2],'skills-advanced':[0,1,2,0,1,2]})){
         await lesson(page,id);
         await page.locator('#academy-quiz button[type="submit"]').click();
         assert.equal(await page.locator('#academy-result').innerText(),'');
@@ -92,13 +92,15 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         await page.locator('[data-academy-back]').first().click();
         assert.match(await page.locator(`[data-academy-lesson="${id}"]`).innerText(),/Knowledge check passed/);
       }
-      assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(sessionStorage.getItem('paramount-academy-session-v1:guest'))).length),6);
+      assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(sessionStorage.getItem('paramount-academy-session-v1:guest'))).length),22);
     });
     await check('previous and next lesson buttons and keyboard activation',async()=>{
       await lesson(page,'fire-basics');await page.getByRole('button',{name:'Next lesson →',exact:true}).click();
       assert.match(await page.locator('#academy-content h3').innerText(),/C-TEC/);
       await page.getByRole('button',{name:'Next lesson →',exact:true}).click();
       assert.match(await page.locator('#academy-content h3').innerText(),/Fire alarm servicing/);
+      await page.getByRole('button',{name:'Next lesson →',exact:true}).click();assert.match(await page.locator('#academy-content h3').innerText(),/cause-and-effect/);
+      await page.getByRole('button',{name:'Next lesson →',exact:true}).click();assert.match(await page.locator('#academy-content h3').innerText(),/conflicting fire-system evidence/);
       await page.getByRole('button',{name:'Back to learning path',exact:true}).click();
       await lesson(page,'fire-ctec');
       await page.getByRole('button',{name:'← Previous lesson',exact:true}).click();
@@ -112,9 +114,9 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     await check('Academy and return button preserve property draft and stored records',async()=>{
       assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('paramount-demo-v1'))),seed);
       await page.locator('.home-management [data-tab="Properties"]').click();
-      await page.locator('form[data-type="properties"] input[name="name"]').fill('Unsaved property draft');
+      await page.locator('#main-property-form input[name="name"]').fill('Unsaved property draft');
       await lesson(page,'fire-basics');await page.locator('[data-academy-return]').click();
-      assert.equal(await page.locator('form[data-type="properties"] input[name="name"]').inputValue(),'Unsaved property draft');
+      assert.equal(await page.locator('#main-property-form input[name="name"]').inputValue(),'Unsaved property draft');
       assert.equal(await page.locator('main').evaluate(el=>el===document.activeElement),true);
       assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('paramount-demo-v1'))),seed);
     });
@@ -122,7 +124,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
       for(const name of ['Properties','Service Records','Inventory','PAT Testing','Emergency Lighting','Planner','Quotes','Documents','Cloud Properties','Job Packs']){
         await page.locator(`[data-tab="${name}"]`).click();
         assert((await page.locator('#view').innerText()).length>0);
-        if(name==='PAT Testing')await page.locator('#patRows').waitFor({state:'attached'});
+        if(name==='PAT Testing')await page.locator('form[data-main-form="pat"] input[name="asset"]').waitFor({state:'attached'});
       }
       await page.locator('#packEngineer').fill('Test engineer');await page.locator('#packFire').check();
       await page.locator('[data-make-pack]').click();
@@ -192,7 +194,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         for(const id of ['fire','cctv','electrical','intruder','lighting','skills']){
           await p.locator(`[data-academy-subject="${id}"]`).click();assert(await p.locator('#academy-content h3').isVisible());await allSubjects(p);
         }
-        for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]})){
+        for(const [id,answers]of Object.entries({'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2], 'electrical-safety':[1,2,0,1,2,0], 'intruder-basics':[1,2,0,1,2,0], 'lighting-basics':[1,2,0,1,2,0], 'skills-diagnosis':[1,2,0,1,2,0],'fire-intermediate':[0,1,2,0,1,2],'fire-advanced':[0,1,2,0,1,2],'cctv-intermediate':[0,1,2,0,1,2],'cctv-advanced':[0,1,2,0,1,2],'electrical-intermediate':[0,1,2,0,1,2],'electrical-advanced':[0,1,2,0,1,2],'intruder-intermediate':[0,1,2,0,1,2],'intruder-advanced':[0,1,2,0,1,2],'lighting-intermediate':[0,1,2,0,1,2],'lighting-advanced':[0,1,2,0,1,2],'skills-intermediate':[0,1,2,0,1,2],'skills-advanced':[0,1,2,0,1,2]})){
           await lesson(p,id);await quiz(p,answers);assert.match(await p.locator('#academy-result').innerText(),/Knowledge check passed/);
         }
       }finally{await ctx.close()}
@@ -205,7 +207,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
           const p=await ctx.newPage();await p.goto(base+entry);
           await p.waitForFunction(()=>/could not load|failed to load/i.test(document.getElementById('academy-status')?.textContent||''));
           if(entry!=='academy-test.html'){
-            assert(await p.locator('.home-hero').isVisible());await p.locator('.home-management [data-tab="Properties"]').click();assert(await p.locator('form[data-type="properties"]').isVisible());
+            assert(await p.locator('.home-hero').isVisible());await p.locator('.home-management [data-tab="Properties"]').click();assert(await p.locator('#main-property-form').isVisible());
           }
           await ctx.unroute('**/academy.js?*');await p.reload();await p.locator('#academy[data-academy-ready="true"]').waitFor();
           await p.locator('[data-academy-subject="fire"]').click();assert(await p.locator('#academy-content h3').isVisible());
@@ -223,7 +225,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
         p.once('dialog',dialog=>dialog.dismiss());await p.locator('#app-update button').click();
         assert.equal(await p.locator('input[name="name"]').inputValue(),'Keep this draft');
         p.once('dialog',dialog=>dialog.accept());await p.locator('#app-update button').click();
-        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-academy-v5')&&!keys.includes('paramount-shell-academy-test-old')});
+        await p.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('paramount-shell-main-app-v8')&&!keys.includes('paramount-shell-academy-test-old')});
         await p.locator('[data-academy-subject="fire"]').waitFor();
       }finally{oldWorker=false;await ctx.close()}
     });
@@ -237,3 +239,7 @@ async function offlineReady(page){await page.evaluate(()=>navigator.serviceWorke
     if(context)await context.close();if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));
   }
 })();
+
+
+
+

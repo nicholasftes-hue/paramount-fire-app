@@ -45,8 +45,8 @@ def main():
                     page.locator(f'[data-academy-subject={subject}]').click()
                     assert page.locator('#academy-content h3').is_visible()
                     page.locator('[data-academy-home]').click()
-                for lesson, answers in {'fire-basics':[0,2,1], 'fire-ctec':[1,2], 'cctv-basics':[1,2,0], 'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]}.items():
-                    subject = 'fire' if lesson.startswith('fire') else 'cctv'
+                for lesson, answers in {'fire-basics':[0,2,1], 'fire-ctec':[1,2], 'cctv-basics':[1,2,0], 'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2], 'electrical-safety':[1,2,0,1,2,0], 'intruder-basics':[1,2,0,1,2,0], 'lighting-basics':[1,2,0,1,2,0], 'skills-diagnosis':[1,2,0,1,2,0]}.items():
+                    subject = {'electrical-safety':'electrical','intruder-basics':'intruder','lighting-basics':'lighting','skills-diagnosis':'skills'}.get(lesson, 'fire' if lesson.startswith('fire') else 'cctv')
                     page.locator(f'[data-academy-subject={subject}]').click()
                     page.locator(f'[data-academy-lesson={lesson}]').click()
                     for index, answer in enumerate(answers):
@@ -73,3 +73,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

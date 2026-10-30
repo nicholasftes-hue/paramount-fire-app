@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "test": "node --test --test-isolation=none tests/*.test.cjs",
-    "test:browser": "node tests/browser.cjs"
+    "test:browser": "node tests/browser.cjs",
+    "test:main-browser": "node tests/main-browser.cjs",
+    "test:certificates-browser": "node tests/certificates-browser.cjs"
   },
   "devDependencies": {
     "playwright": "1.56.1"

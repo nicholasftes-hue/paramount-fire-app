@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paramount isolated sync test</title><body><p id="startup">Opening isolated test workspace…</p>
+<script>
+(async()=>{
+  try{
+    if(!['localhost','127.0.0.1','[::1]'].includes(location.hostname))throw Error();
+    // Separate entry point: never loads normal auth UI, Academy or service worker.
+    const response=await fetch('./index-3.html',{cache:'no-store'});if(!response.ok)throw Error();
+    let html=await response.text();
+    html=html.replace(/<script\b[^>]*\bsrc=["'][^"']+["'][^>]*>\s*<\/script>/gi,'');
+    document.open();document.write(html);document.close();
+    // Explicit module order after document replacement, matching the normal loader.
+    for(const src of ['./team-sync.js','./team-sync-ui.js','./pdf-font.js','./imported-pdf.js','./document-templates.js','./shared-templates.js','./shared-template-cache.js','./shared-template-forms.js','./shared-templates-ui.js','./main-app.js']){
+      await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.async=false;script.onload=resolve;script.onerror=reject;document.body.append(script)});
+    }
+  }catch{document.body.textContent='Test workspace unavailable. Serve this checkout locally and retry.'}
+})();
+</script></body></html>

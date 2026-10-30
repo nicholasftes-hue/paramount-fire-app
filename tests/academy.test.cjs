@@ -34,7 +34,7 @@ function academy({stored = new Map(), blocked = false} = {}) {
   };
 }
 
-const answers = {'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2]};
+const answers = {'fire-basics':[0,2,1],'fire-ctec':[1,2],'cctv-basics':[1,2,0],'cctv-faults':[2,0], 'fire-servicing':[0,1,2,0,1,2], 'cctv-diagnosis':[1,0,2,1,0,2], 'electrical-safety':[1,2,0,1,2,0], 'intruder-basics':[1,2,0,1,2,0], 'lighting-basics':[1,2,0,1,2,0], 'skills-diagnosis':[1,2,0,1,2,0],'fire-intermediate':[0,1,2,0,1,2],'fire-advanced':[0,1,2,0,1,2],'cctv-intermediate':[0,1,2,0,1,2],'cctv-advanced':[0,1,2,0,1,2],'electrical-intermediate':[0,1,2,0,1,2],'electrical-advanced':[0,1,2,0,1,2],'intruder-intermediate':[0,1,2,0,1,2],'intruder-advanced':[0,1,2,0,1,2],'lighting-intermediate':[0,1,2,0,1,2],'lighting-advanced':[0,1,2,0,1,2],'skills-intermediate':[0,1,2,0,1,2],'skills-advanced':[0,1,2,0,1,2]};
 
 test('all six subjects open; unpublished paths cannot be marked complete',()=>{
   const a=academy();
@@ -42,11 +42,8 @@ test('all six subjects open; unpublished paths cannot be marked complete',()=>{
     a.click('data-academy-subject',id);
     assert.equal(a.grid.hidden,true);
     assert.match(a.content.innerHTML,/<h3 tabindex="-1">/);
-    if(!['fire','cctv'].includes(id)) {
-      assert.match(a.content.innerHTML,/Lessons are not available yet/);
-      assert.doesNotMatch(a.content.innerHTML,/data-academy-lesson=/);
-    }
-    assert.match(a.content.innerHTML,/No lessons published yet/);
+    assert.match(a.content.innerHTML,/data-academy-lesson=/);
+    assert.match(a.content.innerHTML,/Intermediate/);
     a.click('data-academy-home');
     assert.equal(a.grid.hidden,false);
     assert.equal(a.focus.at(-1),`[data-academy-subject="${id}"]`);
@@ -71,10 +68,10 @@ for(const [id,correct] of Object.entries(answers)) {
     a.click('data-academy-back');
     assert.match(a.content.innerHTML,/Knowledge check passed/);
     const reopened=academy({stored:a.stored});
-    reopened.click('data-academy-subject',id.startsWith('fire')?'fire':'cctv');
+    reopened.click('data-academy-subject',id.split('-')[0]);
     assert.match(reopened.content.innerHTML,/Knowledge check passed/);
     const fresh=academy();
-    fresh.click('data-academy-subject',id.startsWith('fire')?'fire':'cctv');
+    fresh.click('data-academy-subject',id.split('-')[0]);
     assert.doesNotMatch(fresh.content.innerHTML,/Knowledge check passed/);
   });
 }
@@ -98,3 +95,4 @@ test('progress is separated by account; bad or blocked storage does not break le
 test('return control focuses the existing workspace without replacing it',()=>{
   const a=academy();a.returnToApp();assert.equal(a.focus.at(-1),'workspace');
 });
+

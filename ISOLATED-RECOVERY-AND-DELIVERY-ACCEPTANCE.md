@@ -1,0 +1,97 @@
+# Isolated recovery and document-delivery acceptance
+
+Development only. No production credentials/endpoints, customer messages, hosted
+migrations, deployment or merge are authorised here. Synthetic database tests
+connect only to loopback `paramount_sync_test`; worker/provider tests use injected
+fake transports. Record exact SHA, CI URL and evidence hashes for every run.
+
+## Automated acceptance
+
+`python3 scripts/verify-source-backup.py` verifies the source ZIP checksum, rejects
+unsafe/duplicate/missing archive members, extracts into a temporary directory and
+compares every file to its exact Git blob hash. It never runs restored code. CI
+runs it immediately after source archiving.
+
+`python tests/team-sync-db.py` creates a disposable synthetic auth/workspace schema,
+runs existing role/CAS/issue/verification/queue/template regressions, then executes
+`tests/backup-restore-db.py`. The latter uses `pg_dump` custom format, SHA-256,
+creates a **different** database `paramount_restore_acceptance`, restores with
+`pg_restore --exit-on-error`, compares deterministic hashes of every row in every
+`auth`/`paramount_sync` table, checks template original hashes, anonymous/revoked/
+direct-table denial, then drops only that test database. The source inventory must
+remain identical. Audit, revisions, invitations, permissions and queued messages
+must survive. Roles are shared in this disposable PostgreSQL cluster; this is not
+proof of restoring Supabase-managed auth/storage or global roles from backup.
+
+Run only on a fresh disposable cluster with PostgreSQL client tools. The runner
+refuses arbitrary database targets. It fails if its restore database already
+exists; it does not overwrite an existing database. Backups contain synthetic
+secrets/queue material and stay in a temporary directory; no database dump is
+uploaded as a public artifact. Corrupted archive bytes fail checksum comparison.
+A trusted checksum kept separately is required for real recovery; a checksum next
+to attacker-controlled bytes is not authentication.
+
+`npm test` covers workspace JSON/draft merge recovery, shared template byte/mapping
+verification and cache/account/expiry/race/denial failures. Delivery tests cover
+stable retry keys, transient/permanent errors, lease-backed stored attachment
+reuse and real local signed receipt generation. The new end-to-end worker test
+renders/signs the frozen synthetic acknowledgement, persists exact attachment/hash
+**before** provider submission, and verifies the submitted bytes match. Its
+provider is mocked: provider acceptance is not inbox delivery. Existing database
+tests cover private queue/claim fencing, verification lockout, replay/revocation,
+idempotent acceptance and reminder scheduling. No real email is sent.
+
+CI run 41104765917, head `17f1ce9`, passed the entire disposable database
+job including the new backup/restore drill. This is synthetic PostgreSQL
+acceptance only; the hosted rows below remain pending. Run 41105370127 for
+`39b8a58` also passed both jobs, including source ZIP restore verification and
+the corrected shared template engineer/office/offline-export browser checks.
+
+## Hosted recovery and real mailbox checks still required
+
+These gates remain **NOT EXECUTED**. They need an owner-provisioned isolated hosted
+project, authorised test mailboxes/sender, HTTPS callback/scheduler, signing
+identity, access policy and approved isolated configuration. Never substitute the
+production project or live app. Do not run a restored queue against a real sender.
+
+| Check | Required evidence | Current result |
+|---|---|---|
+| Source recovery | Recover exact commit from retained source ZIP; verify checksum/tree, tests and all binary assets | Local ZIP extraction and all 115 implementation-head blob hashes passed locally and in CI 41105370127 |
+| Hosted data recovery | Owner-approved backup to separate project; records/revisions, auth mapping, ACLs, templates/originals, audit and storage compare | Pending isolated hosted configuration |
+| Recovery objective | Measured backup age/RPO and complete restore time/RTO versus owner-approved targets | Targets/measurements pending |
+| Quarantine gate | Updated antivirus database; infected/malformed/timeout/missing-scanner fixtures remain quarantined; server publication requires trusted scan of exact hash | Database/worker gate implemented in development; hosted execution pending |
+| Invitation delivery | Single approved test recipient; invitation arrives with correct HTTPS origin, expiry and no token leakage; collect provider event and inbox evidence | Pending |
+| Verification | Email challenge arrives only at intended mailbox; wrong/exhausted/expired/revoked/replayed proofs reject | Automated synthetic coverage; real mailbox pending |
+| Receipt delivery | Actual acknowledged frozen revision; receipt arrives with exact stored signed attachment/hash, scope, issuer and audit | Local render/sign/provider-mock passed; inbox pending |
+| Retry/failure | Provider timeout/429/5xx and permanent rejection; stable message ID/key, no duplicate issue/attachment, failed audit and operator procedure | Automated synthetic coverage; provider acceptance pending |
+| Signing trust | Restricted key storage, renewal/revocation, intended signer/certificate trust and independent PDF verification | Local temporary-key checks passed; real identity pending |
+| Restored queue safety | Disable worker/scheduler/sender in restored project; reconcile provider IDs/leases before any owner-approved resume | Documented; hosted drill pending |
+
+Store evidence privately with reviewer/owner names, dates, exact SHA and defects.
+No acceptance row may be signed from a screenshot of a green test count alone.
+
+## Operational security boundary
+
+`server/scan-template.cjs --isolated INPUT PRIVATE_QUARANTINE_DIRECTORY` copies a
+bounded PDF/DOCX into a private newly-created directory, inspects structure, runs
+`clamscan`, verifies the same bytes again, and writes a hash/verdict manifest.
+Missing scanner, signature database errors, timeout, infection and structural
+rejection all yield blocked. No file is served or published by this utility.
+A local report is not a publish token. The additive template-security migration
+now enforces trusted server results: private queued bytes, worker-only expiring
+leases, exact hash/format/fields and publication/read/activation gates, including
+idempotent publish returns. The browser first queues an upload and retries only
+after a clean server result. ClamAV signatures older than 48 hours or unavailable
+block new scans. Apply/test only on isolated infrastructure; hosted enforcement,
+monitoring, least-privilege key custody and quarantine retention remain gates.
+See PRODUCTION-LAUNCH-CHECKLIST.md and HOSTED-RECOVERY-RUNBOOK.md.
+
+CI source checks parse all tracked JavaScript, flag private-key material and common
+credential-shaped tokens/privileged JWTs, check isolated SQL/search paths, and
+ensure shared private caches never enter the public service-worker shell. Existing
+npm dependency audit remains. These bounded checks do not replace a professional
+security review, full secret-history scan or independent penetration testing.
+
+For safe real-inbox preparation and explicit remaining approvals, use
+SAFE-DELIVERY-AND-SIGNING-ACCEPTANCE.md. No provider acceptance or hosted restore
+is claimed by the local mocked tests.

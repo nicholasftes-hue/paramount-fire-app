@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta http-equiv="Cache-Control" content="no-store">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://*.supabase.co http://127.0.0.1:* http://localhost:*; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
+<title>Paramount isolated record acknowledgement test</title><link rel="stylesheet" href="main-app.css"></head>
+<body class="main-app"><main class="panel"><h1>Record acknowledgement — isolated test</h1>
+<p>Fictional records only. Read the complete record and limitations before acknowledging. A one-time code sent to the intended mailbox is required before viewing or acknowledging. Mailbox access is verified; your name and authority remain self-declared. This does not certify compliance.</p>
+<form id="signature-open"><label>Isolated test configuration JSON<input id="signature-config" type="file" accept="application/json" required></label>
+<label>Invitation token<input id="signature-token" type="password" autocomplete="off" required pattern="[0-9a-f]{64}"></label><button>Read record</button></form>
+<form id="signature-verify" hidden><label>Email verification code<input name="code" autocomplete="one-time-code" required pattern="[0-9a-f]{8}"></label><button>Verify mailbox and read record</button><button id="signature-resend" type="button">Request a new code</button></form>
+<section id="signature-document" aria-label="Record to acknowledge"></section>
+<form id="signature-accept" hidden><label>Your full name<input name="signer" required minlength="2" maxlength="150" autocomplete="name"></label>
+<label><input name="consent" type="checkbox" required><span id="signature-consent"></span></label><button>Acknowledge this exact record</button></form>
+<button id="signature-receipt" type="button" hidden>Download acknowledgement receipt (JSON)</button>
+<button id="signature-pdf" type="button" hidden>Download issued acknowledgement PDF</button>
+<p id="signature-status" role="status" aria-live="polite"></p><button id="signature-close" type="button">Clear record and invitation</button>
+</main><script src="team-sync.js"></script><script src="pdf-font.js"></script><script src="controlled-pdf.js"></script><script src="signature-test.js"></script></body></html>
