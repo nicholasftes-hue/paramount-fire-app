@@ -161,3 +161,10 @@ claim assertion and stopped only the disposable runner updater before the
 explicit freshclam run. No security gate was weakened. Also tightened hosted
 manifest SHA/synthetic-identity checks and stripped inherited libpq routing
 selectors so PGHOSTADDR/PGSERVICE cannot redirect an approved project target.
+
+Quarantine path hardening additionally resolves the real filesystem path and
+requires private ownership/mode 0700 outside the served source tree, rejecting
+symlink redirects and public directories before a worker claim. Its regression
+covers permissive umask environments explicitly. DOCUMENT-SECURITY-ACCEPTANCE.md
+records the server queue/worker setup, private retention, update monitoring and
+remaining hosted evidence/key-custody approval. Local suite now has 128 tests.

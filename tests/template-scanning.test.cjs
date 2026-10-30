@@ -8,3 +8,13 @@ test('server quarantine requires structural and malware scanner success for the 
  await assert.rejects(()=>quarantine(dir,dir),/regular/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('quarantine refuses served-tree paths, public directories and symlink redirects into the source',()=>{
+ const {privateDirectory}=require('../server/scan-template.cjs');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'private-scan-path-'));try{
+ assert.throws(()=>privateDirectory(process.cwd()),/outside/);
+ const open=path.join(root,'public');fs.mkdirSync(open,{mode:0o755});fs.chmodSync(open,0o755);assert.throws(()=>privateDirectory(open),/0700/);
+ const link=path.join(root,'redirect');fs.symlinkSync(process.cwd(),link);assert.throws(()=>privateDirectory(link),/outside/);
+ assert.equal(privateDirectory(root),fs.realpathSync(root));
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});

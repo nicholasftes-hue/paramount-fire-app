@@ -1,7 +1,7 @@
 'use strict';
 // Server-only polling adapter. Private files are never served as public assets.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {quarantine}=require('./scan-template.cjs');
+const {quarantine,privateDirectory}=require('./scan-template.cjs');
 const PRODUCTION='ehlfgmfjzwfsudowaxku';
 function settings(env){
  const url=new URL(env.PARAMOUNT_TEST_URL||'');
@@ -10,16 +10,16 @@ function settings(env){
 }
 async function tick(c,fetcher=fetch,scanner=quarantine){
  const rpc=async(name,body={})=>{const r=await fetcher(c.url+'/rest/v1/rpc/'+name,{method:'POST',signal:AbortSignal.timeout(20000),headers:{apikey:c.key,Authorization:'Bearer '+c.key,'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error('Scan RPC failed');return r.json();};
+ const directory=privateDirectory(c.directory);
  const job=await rpc('paramount_template_scan_claim');if(!job)return false;
  if(!/^[0-9a-f]{64}$/.test(job.hash)||!['pdf','docx'].includes(job.format)||typeof job.content!=='string'||job.content.length>2796204)throw Error('Invalid quarantine claim');
  const bytes=Buffer.from(job.content,'base64');let clean=false,fields=null;
- fs.mkdirSync(c.directory,{recursive:true,mode:0o700});
- const privateDir=fs.mkdtempSync(path.join(c.directory,'claimed-'));fs.chmodSync(privateDir,0o700);
+ const privateDir=fs.mkdtempSync(path.join(directory,'claimed-'));fs.chmodSync(privateDir,0o700);
  const input=path.join(privateDir,'upload.'+job.format);
  try{
   fs.writeFileSync(input,bytes,{mode:0o600,flag:'wx'});
   if(bytes.length<1||bytes.length>2097152||crypto.createHash('sha256').update(bytes).digest('hex')!==job.hash)throw Error('Claim hash mismatch');
-  const report=await scanner(input,c.directory);
+  const report=await scanner(input,directory);
   clean=report.verdict==='clean'&&report.structuralInspection===true&&report.sha256===job.hash&&report.format===job.format&&Array.isArray(report.fields);fields=clean?report.fields:null;
  }catch{/* All scan/inspection failures remain blocked; no upload bytes in logs. */}
  finally{fs.rmSync(privateDir,{recursive:true,force:true});}
