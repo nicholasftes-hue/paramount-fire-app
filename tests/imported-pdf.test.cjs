@@ -14,7 +14,7 @@ test('structured PDF import maps real bundled forms; independent-reader artifact
  fs.writeFileSync('test-results/imported-blank.pdf',Buffer.from(pdf()));
 });
 test('rejects encoded actions, unreachable active content, encryption, signatures, XFA and object streams',()=>{
- for(const extra of ['/OpenAction << /S /JavaScript /JS (evil) >>','/Open#41ction << /S /Java#53cript /JS (evil) >>','/AA << /K << /S /Launch >> >>','/Names << /EmbeddedFiles [] >>','/XFA (xml)','/Encrypt 5 0 R','/URI (https://example.invalid)','/Perms << >>'])assert.throws(()=>api.inspect(pdf(extra)),/Unsafe/,extra);
+ for(const extra of ['/OpenAction << /S /JavaScript /JS (evil) >>','/Open#41ction << /S /Java#53cript /JS (evil) >>','/AA << /K << /S /Launch >> >>','/Names << /EmbeddedFiles [] >>','/XFA (xml)','/Encrypt 5 0 R','/URI (https://example.invalid)','/Perms << >>','/OpenAction#00 << >>'])assert.throws(()=>api.inspect(pdf(extra)),/Unsafe/,extra);
  for(const o of ['<< /Type /ObjStm /N 1 /First 0 /Length 0 >>\nstream\n\nendstream','<< /S /Java#53cript >>','<< /Type /Filespec /F (external) >>'])assert.throws(()=>api.inspect(pdf('',undefined,o)),/Unsafe/);
  assert.throws(()=>api.inspect(pdf('','<< /FT /Sig /T (Signature) >>')),/Unsafe/);
 });
@@ -26,6 +26,7 @@ test('unsupported/read-only/signature-looking fields stay manual; text overflow 
  for(const f of ['<< /FT /Btn /T (Check) >>','<< /FT /Tx /T (Signature) /Subtype /Widget /Rect [0 0 80 20] >>','<< /FT /Tx /Ff 1 /T (Locked) /Subtype /Widget /Rect [0 0 80 20] >>'])assert.equal(api.inspect(pdf('',f)).fields.length,0);
  assert.throws(()=>api.populate(pdf(),{Engineer:'engineer'},{engineer:'é'},'DRAFT'),/ASCII/);
  assert.throws(()=>api.populate(pdf(),{Engineer:'engineer'},{engineer:'x'.repeat(1000)},'DRAFT'),/fit/);
+ assert.throws(()=>api.populate(pdf(),{Engineer:'engineer'},{engineer:'@'.repeat(40)},'DRAFT'),/fit/);
  assert.throws(()=>api.populate(pdf(),{Missing:'engineer'},values,'DRAFT'),/Invalid/);
 });
 test('mapping revisions are immutable, hash/version-bound, scoped and preserve original bytes',async()=>{
