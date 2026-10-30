@@ -52,7 +52,14 @@ bytes, permission denials and unchanged source database. Its new browser fixture
 cleared the human-review checkbox after the fixture had ticked it. The fixture
 now asserts that reset, then explicitly reviews the selected template before
 saving. This preserves the safety behaviour; no validation was weakened.
-Final-head CI must verify the corrected fixture and added archive verifier.
+CI run [41105370127](https://github.com/nicholasftes-hue/paramount-fire-app/actions/runs/41105370127)
+for exact head `39b8a58d3498c0af536cacb7e489afcd6f1f6f6d` completed successfully:
+both academy/browser/document and isolated database jobs passed. The corrected
+shared engineer/office mapping, offline mapped PDF download, deactivation/history,
+source archive verifier and full database restore checks passed. npm audit found
+zero vulnerabilities. The retained source ZIP and browser/document evidence are
+attached to that run. This is implementation-head evidence; subsequent report-only
+commits must also have their exact-head CI status checked on draft PR #2.
 
 Local browser startup is blocked by Chromium setsockopt denial; local database
 runner is blocked by missing psql. No local browser/database success is claimed.
@@ -75,7 +82,7 @@ exact development SHA, not inferred from a previous green job.
 
 ## Launch assessment: NOT READY
 
-Remaining gates: final-head full CI; physical mobile and actual Word execution;
+Remaining gates: physical mobile and actual Word execution;
 competent-person certificate review; approved Absolute artwork/legal presentation;
 trusted server scan/quarantine enforcement before publication (the local scanner
 is not connected to the admin RPC); isolated hosted restore including managed

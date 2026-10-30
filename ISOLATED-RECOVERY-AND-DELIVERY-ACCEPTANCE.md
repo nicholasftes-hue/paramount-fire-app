@@ -43,7 +43,9 @@ idempotent acceptance and reminder scheduling. No real email is sent.
 
 CI run 41104765917, head `17f1ce9`, passed the entire disposable database
 job including the new backup/restore drill. This is synthetic PostgreSQL
-acceptance only; the hosted rows below remain pending.
+acceptance only; the hosted rows below remain pending. Run 41105370127 for
+`39b8a58` also passed both jobs, including source ZIP restore verification and
+the corrected shared template engineer/office/offline-export browser checks.
 
 ## Hosted recovery and real mailbox checks still required
 
@@ -54,7 +56,7 @@ production project or live app. Do not run a restored queue against a real sende
 
 | Check | Required evidence | Current result |
 |---|---|---|
-| Source recovery | Recover exact commit from retained source ZIP; verify checksum/tree, tests and all binary assets | Local ZIP extraction and all 114 baseline blob hashes passed; CI archive verifier added |
+| Source recovery | Recover exact commit from retained source ZIP; verify checksum/tree, tests and all binary assets | Local ZIP extraction and all 115 implementation-head blob hashes passed locally and in CI 41105370127 |
 | Hosted data recovery | Owner-approved backup to separate project; records/revisions, auth mapping, ACLs, templates/originals, audit and storage compare | Pending isolated hosted configuration |
 | Recovery objective | Measured backup age/RPO and complete restore time/RTO versus owner-approved targets | Targets/measurements pending |
 | Quarantine gate | Updated antivirus database; infected/malformed/timeout/missing-scanner fixtures remain quarantined; server publication requires trusted scan of exact hash | Local scanner prepared; enforced hosted publication gate pending |
