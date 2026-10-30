@@ -72,6 +72,8 @@ jobs:
       - if: ${{ !cancelled() }}
         run: python tests/mapped-template-documents.py
       - if: ${{ !cancelled() }}
+        run: python tests/imported-pdf.py
+      - if: ${{ !cancelled() }}
         run: python tests/service-pdf.py
       - if: ${{ !cancelled() }}
         run: python tests/register-documents.py
