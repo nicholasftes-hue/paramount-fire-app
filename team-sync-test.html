@@ -10,7 +10,7 @@
     html=html.replace(/<script\b[^>]*\bsrc=["'][^"']+["'][^>]*>\s*<\/script>/gi,'');
     document.open();document.write(html);document.close();
     // Explicit module order after document replacement, matching the normal loader.
-    for(const src of ['./team-sync.js','./team-sync-ui.js','./pdf-font.js','./imported-pdf.js','./document-templates.js','./shared-templates.js','./shared-templates-ui.js','./main-app.js']){
+    for(const src of ['./team-sync.js','./team-sync-ui.js','./pdf-font.js','./imported-pdf.js','./document-templates.js','./shared-templates.js','./shared-template-cache.js','./shared-template-forms.js','./shared-templates-ui.js','./main-app.js']){
       await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.async=false;script.onload=resolve;script.onerror=reject;document.body.append(script)});
     }
   }catch{document.body.textContent='Test workspace unavailable. Serve this checkout locally and retry.'}

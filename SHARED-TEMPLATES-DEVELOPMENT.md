@@ -70,3 +70,38 @@ RPC provided. Before production: isolated hosted integration and restore drills,
 server scanning/quarantine, shared form mapping/offline workflows, physical mobile
 and actual Microsoft Word acceptance, competent certificate review, approved
 Absolute artwork and owner-reviewed migration/rollback planning. No deployment.
+
+## Continuation — shared forms and offline snapshots
+
+Verified `712d490` is the direct child of `6555bb9`; only the development ref was
+fast-forwarded with force disabled. Remote branch and draft/open PR #2 agreed.
+The recovered 104-file checkout matches the exact tree and every blob hash.
+
+Engineer and office forms in the isolated entry point now read shared versions
+and immutable PDF mappings, rather than the personal library. Admin publication
+accepts restricted PDF mapping definitions and optional property assignment.
+Original byte versions remain separate from populated drafts. Mapping selections
+remain bound to template UUID/hash and mapping index in that immutable version.
+Changing mappings requires publication of another version. Normal production
+loading, auth, Supabase and Mark's demo are untouched.
+
+Explicit refresh verifies all bytes and mappings, checks the authorised list again
+for concurrent changes, and atomically replaces the complete cache. Cache scope
+includes endpoint/workspace/user. Account changes clear in-memory availability.
+A denied/partial refresh persists a blocked marker, so reload cannot revive stale
+permissions. Quota failure presents no partial snapshot. Offline snapshots expire
+after 24 hours, including after reload; timestamps in the future reject. Online
+original/draft downloads recheck access to the exact version. Refresh removes
+revoked versions and retains authorised historical originals. No offline publish,
+issue, permission mutation or template upload queue was introduced.
+
+These are browser-local drafts, not a trusted offline authorisation token. Local
+storage and device clocks are not tamper-proof. Revocation cannot recall existing
+exports. The isolated entry point deliberately does not install a service worker;
+its cache survives an offline workspace reopen only while the test shell itself
+is available. Hosted/offline application activation still needs separate approval
+and acceptance. Shared data is never added to the public app-shell cache.
+
+Validation checkpoint: 120 Node tests pass (113 baseline plus seven adversarial
+shared cache/form tests). Local Chromium startup remains blocked by sandbox socket
+restrictions. PostgreSQL is absent. Those checks require CI; no local pass claimed.
