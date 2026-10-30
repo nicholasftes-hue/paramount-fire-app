@@ -107,3 +107,4 @@ print('PASS: isolated migration rollback/reapply guards, RLS/direct access denia
 exec(compile(Path('tests/controlled-issue-db.py').read_text(), 'tests/controlled-issue-db.py', 'exec'))
 exec(compile(Path('tests/verified-delivery-db.py').read_text(), 'tests/verified-delivery-db.py', 'exec'))
 exec(compile(Path('tests/shared-templates-db.py').read_text(), 'tests/shared-templates-db.py', 'exec'))
+exec(compile(Path('tests/backup-restore-db.py').read_text(), 'tests/backup-restore-db.py', 'exec'))

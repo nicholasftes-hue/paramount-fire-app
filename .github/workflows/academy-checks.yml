@@ -22,6 +22,8 @@ jobs:
         run: |
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           npm audit --audit-level=high
+      - name: Source security checks
+        run: git ls-files -z | node scripts/security-checks.cjs
       - run: npm test
       - run: google-chrome --version
       - run: npm run test:browser

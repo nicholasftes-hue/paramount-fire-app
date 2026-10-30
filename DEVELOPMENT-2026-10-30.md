@@ -1,51 +1,84 @@
-# Offline draft recovery and launch review — 30 October 2026
+# Development continuation — 30 October 2026
 
-Development branch `paramount-main-app-development`, draft PR #2. Continues
-`ebdcb0b7d4660df05ec35c46432b70cf3361f0d4`. No merge or deployment.
-
-## Completed
-
-Workspace backup restore previously discarded all exported unfinished forms.
-It now restores absent forms, preserves existing forms, checks account scope,
-validates partial-form structure and edit-source revisions, and rejects malformed
-input before writing any records. Completed-certificate validation is deliberately
-not applied to partial field work. Conflicting saved records still abort the
-entire merge. Updated restore wording describes the behaviour. The app-shell
-cache version is incremented; update consent remains required.
-
-## Verification
-
-- All 104 Node tests pass locally (102 baseline, two recovery regressions).
-  Tests cover reload recovery, repeated import, current-form preservation,
-  account isolation, malformed input, atomic failure and edit-source revisions.
-- Populated service/quote Word edit/save/reopen and strict quotation PDF pass.
-- Both blank Word templates and all 88 fillable PDF fields pass save/reopen.
-- Mapped template Word edit/save/reopen, both branded Word/PDF documents,
-  attribution and draft labels pass; PDFs also render independently with PDFium.
-- Controlled evidence and incremental cryptographic PDF parsing pass.
-- Template browser runner blocked before application execution by Chromium
-  `setsockopt: Operation not permitted`. Disposable database runner blocked by
-  missing `psql`. No production database or hosted account was contacted.
-- Git transport cannot reach configured proxy. All 93 source blobs recovered
-  through the authenticated GitHub connector match pinned tree sizes and hashes.
-  Commit via GitHub API retains the existing development head as its parent.
-
-## Launch blockers and next priorities
-
-1. Run full CI for the new head, then physical Samsung/iPhone offline/reconnect,
-   save/resume, sharing/printing and actual Microsoft Word acceptance.
-2. Obtain competent technical review of fire alarm, lighting and batch PAT scope,
-   declarations and layouts. Generated documents remain unissued drafts.
-3. Shared customer-template storage still needs server ACLs, audit and backup
-   recovery tests; current template libraries are personal/device-local and need
-   their separate backup. Fillable imported-PDF mapping and Word-to-PDF conversion
-   remain unimplemented. Approved Absolute logo and issuer presentation remain
-   outstanding; no logo or company/legal identity was invented.
-4. Complete isolated hosted permissions/concurrency and source/data restore
-   acceptance, production-history mapping and owner-reviewed migration/rollback
-   planning. Local JSON recovery is not proof of hosted database backups.
-5. Delivery still needs isolated sender/scheduler/HTTPS/signing configuration and
-   real delivery acceptance described in DELIVERY-AND-PERMISSIONS-DEVELOPMENT.md.
-   Do not enable customer delivery or treat local exports as controlled issue.
-
+Development branch only; PR #2 remains open and draft. No merge or deployment.
 Main, production Supabase, live app and Mark's demo remain untouched.
+
+## Verified recovery and checkpoints
+
+`712d490589bd16e0603fc15a72263c98669e3d3c` is the direct child of
+`6555bb9a39706e13864cb55f409b7bdf52b924a0`. Reviewed both changed files:
+decoded PDF control names reject and conservative appearance sizing prevents
+wide-glyph clipping, with regressions. Updated only the development ref using
+force=false and an expected-old-head guard. Fresh branch and PR reads confirmed
+the new head, open/draft status and unchanged base `paramount-academy-update`.
+Git transport cannot reach its proxy; recovered all 104 files via the GitHub
+connector, verified blob sizes/hashes and exact tree, and reconstructed the exact
+baseline commit locally. Further checkpoints use the same non-force ref update.
+
+Checkpoint `362f0b5` integrates shared template/mapping selection into isolated
+engineer and office forms, with a scoped, verified, 24-hour offline snapshot.
+See SHARED-TEMPLATES-DEVELOPMENT.md for cache boundaries. This continuation adds
+server-side local quarantine scanning, source security checks, shared browser
+regressions, complete disposable PostgreSQL backup/restore verification and a
+real local signed-receipt generation/provider-mock acceptance test. The public
+app-shell cache is bumped to v18 with update consent retained; shared files/data
+remain outside it. No production auth or legacy inline app source was rewritten.
+
+## Tests and CI
+
+Current local **npm test exits 0: 122 Node tests pass**, plus 90 legacy
+loading/content checks. Independent imported PDF parsing/appearances, preserved
+content, both brands and save/reopen pass. Populated service/quote and mapped
+Word editing/save/reopen pass; both branded PDFs render independently with PDFium.
+Blank Word and all 88 fillable PDF fields pass. Extinguisher/installation strict
+PDF/Word tests pass. Controlled evidence and cryptographic PDF checks pass.
+Tracked-source credential patterns, all JavaScript parsing, SQL isolation/search
+paths and private-cache boundary checks pass. Local quarantine CLI correctly
+returns blocked without an available antivirus service. Injected scanner tests
+cover clean/infected/missing/error and post-scan byte tampering.
+
+Initial checkpoint CI run 41103753296 for head `362f0b5` failed npm test because
+the legacy loader-order assertion expected the pre-imported-PDF module sequence
+and old document-template query version. Its 120 named Node tests were green,
+but the legacy async check set process exit code 1. Earlier test-count-only
+statements overstated full-suite success. The assertion now checks the complete
+actual ordered module list, including imported PDF and the updated template
+module query version; local process exit 0 is verified. That checkpoint's
+browser/document suites and disposable database job passed. Next-head CI must
+verify the added shared browser scenarios and full backup/restore drill.
+
+Local browser startup is blocked by Chromium setsockopt denial; local database
+runner is blocked by missing psql. No local browser/database success is claimed.
+Full browser tests, new shared form/mapping/offline export cases, main/Academy/
+offline consent regressions, database roles/CAS/queue and the new pg_dump/restore
+run remain wired into CI with read-only repository permissions. No hosted service
+or actual provider/mailbox was contacted. CI status must be read for the final
+exact development SHA, not inferred from a previous green job.
+
+## Acceptance packs prepared
+
+- PHYSICAL-DEVICE-AND-WORD-ACCEPTANCE.md: physical Samsung/Chrome/Samsung Internet,
+  iPhone/Safari, offline/reconnect/save/share/print and actual Microsoft Word
+  editing/reopen/pagination/export checks, with evidence and sign-off fields.
+- COMPETENT-PERSON-CERTIFICATE-REVIEW.md: per-discipline scope, standards edition,
+  methods/readings/units, Not Tested, limitations, declarations, issuer/brand,
+  template mapping and controlled issue review, with explicit approval record.
+- ISOLATED-RECOVERY-AND-DELIVERY-ACCEPTANCE.md: disposable source/data restore and
+  signed delivery checks, plus outstanding hosted/inbox/security acceptance.
+
+## Launch assessment: NOT READY
+
+Remaining gates: final-head full CI; physical mobile and actual Word execution;
+competent-person certificate review; approved Absolute artwork/legal presentation;
+trusted server scan/quarantine enforcement before publication (the local scanner
+is not connected to the admin RPC); isolated hosted restore including managed
+Supabase auth/storage and measured owner-approved RPO/RTO; actual sender/inbox,
+HTTPS/scheduler/signing identity acceptance; production-history mapping and
+owner-reviewed migration/rollback. The isolated test shell has no service worker,
+so cold offline navigation is not claimed. Cached drafts cannot prove current
+roles, resist device-clock tampering or recall previous exports. Word-to-PDF
+conversion remains a manual Word acceptance step, not an app service.
+
+Earlier offline draft backup merging remains implemented and tested: missing
+partial forms restore without replacing current work, account/edit-source checks
+apply, record conflicts abort atomically, and no completion is inferred.

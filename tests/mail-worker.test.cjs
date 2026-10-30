@@ -31,3 +31,19 @@ test('signed receipt attachment is persisted before sending and identical stored
  await tick(c,fake,async()=>{signed++;return {filename:'evidence.pdf',content:'identical-signed-bytes',sha256:'a'.repeat(64),certificate_sha256:'b'.repeat(64)}});
  assert.equal(signed,1);assert.deepEqual(sent[0],sent[1]);assert.equal(sent[0].attachments[0].content,'identical-signed-bytes');
 });
+test('isolated delivery acceptance builds a real signed receipt, persists its hash and sends those exact bytes',async()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),{spawnSync}=require('node:child_process');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'paramount-delivery-acceptance-'));try{
+ const keyPath=path.join(dir,'key.pem'),certificatePath=path.join(dir,'cert.pem');
+ const result=spawnSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',keyPath,'-out',certificatePath,'-days','1','-subj','/CN=Fictional delivery acceptance signer'],{stdio:'pipe'});assert.equal(result.status,0);
+ const canonical_document=JSON.stringify({workspace:'fictional',document:'test-record',kind:'service',version:1,scope:'Fictional reviewed scope with limitations',payload:{revision:1,values:{engineer:'Fictional Engineer',tests:'Recorded fictional results',reviewed:'yes'},siteSnapshot:{name:'Fictional site'}}});
+ const evidence={canonical_document,digest:crypto.createHash('sha256').update(canonical_document).digest('hex'),issue:'fictional-issue',sequence:1,approved_at:'2026-10-30T10:00:00Z',signed_at:'2026-10-30T11:00:00Z',request:'fictional-request',verified_email:'fictional@example.invalid',verified_at:'2026-10-30T10:59:00Z',signer_name:'Fictional Recipient',consent:'Acknowledged recorded scope and limitations'};
+ let claimed=false,stored,posted,finished;const events=[];
+ const fake=async(url,o)=>{const body=JSON.parse(o.body);if(url.endsWith('schedule'))return {ok:true,json:async()=>0};if(url.endsWith('claim')){const message=claimed?null:{id:'receipt-id',lease:'lease',kind:'receipt',recipient:'fictional@example.invalid',request_id:'fictional-request',body:{subject:'Fictional receipt',text:'Test only',evidence}};claimed=true;return {ok:true,json:async()=>message};}
+ if(url.endsWith('artifact')){events.push('persist');stored=body.p_attachment;return {ok:true,json:async()=>({subject:'Fictional receipt',text:'Test only',attachment:stored})};}
+ if(url.endsWith('finish')){finished=body;return {ok:true,json:async()=>true};}
+ assert.equal(url,'https://api.resend.com/emails');events.push('send');posted=body;return {ok:true,json:async()=>({id:'fictional-provider-acceptance'})};};
+ assert.equal(await tick({...c,keyPath,certificatePath},fake),1);assert.deepEqual(events,['persist','send']);assert.equal(finished.p_outcome,'accepted');assert.equal(posted.attachments[0].content,stored.content);
+ const bytes=Buffer.from(stored.content,'base64');assert(bytes.subarray(0,5).equals(Buffer.from('%PDF-')));assert.match(bytes.toString('latin1'),/\/ByteRange \[/);assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),stored.sha256);assert.equal(stored.certificate_sha256.length,64);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});

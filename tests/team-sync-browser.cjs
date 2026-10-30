@@ -3,6 +3,8 @@ const assert=require('node:assert/strict'),http=require('node:http'),fs=require(
 const {randomUUID}=require('node:crypto'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),rows=new Map(),ops=new Map(),users=[randomUUID(),randomUUID(),randomUUID()],workspace=randomUUID(),errors=[],external=[];
 let offline=false,denied=false;
+const templateBytes=fs.readFileSync('templates/Paramount_Invoice_Fillable.pdf'),templateId=randomUUID();
+let sharedTemplate={id:templateId,family:randomUUID(),version:1,name:'Fictional shared blank',company:'',property:'',kind:'',filename:'blank.pdf',format:'pdf',hash:require('node:crypto').createHash('sha256').update(templateBytes).digest('hex'),content:templateBytes.toString('base64'),active:true,mappings:[{name:'Engineer',fields:{prepared_by:'engineer'}}]};
 const issueId=randomUUID(),requestId=randomUUID(),inviteToken='c'.repeat(64);let issuedRecord=null,revoked=false;
 const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req.url,'http://localhost').pathname.slice(1)||'index.html');if(!p.startsWith(root+path.sep)||!fs.existsSync(p)){res.writeHead(404).end();return}res.setHeader('Content-Type',p.endsWith('.js')?'application/javascript':p.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(p))});
 (async()=>{let browser;try{
@@ -26,6 +28,8 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
       if(url.pathname.endsWith('/paramount_signature_invite')){assert.equal(p.p_issue,issueId);assert.equal(p.p_hours,72);return reply({json:{request:requestId,delivery:'queued',expires_at:'2026-11-01T12:00:00Z'}})}
       if(url.pathname.endsWith('/paramount_signature_revoke')){assert.equal(p.p_request,requestId);revoked=true;return reply({json:null})}
       if(url.pathname.endsWith('/paramount_issue_history')){assert.equal(p.p_document,issuedRecord);return reply({json:{issues:[{id:issueId}],events:[{event:'issued'}]}})}
+      if(url.pathname.endsWith('/paramount_template_list')){const {content,...meta}=sharedTemplate;return reply({json:[meta]});}
+      if(url.pathname.endsWith('/paramount_template_get')){assert.equal(p.p_id,templateId);return reply({json:sharedTemplate});}
       if(url.pathname.endsWith('_list'))return reply({json:[...rows.values()]});
       if(url.pathname.endsWith('_write')){
         if(ops.has(p.p_operation))return reply({json:ops.get(p.p_operation)});
@@ -47,14 +51,24 @@ const server=http.createServer((req,res)=>{const p=path.resolve(root,new URL(req
   async function sync(page){await page.locator('#team-now').click();await page.locator('#team-status').filter({hasText:'Sync complete'}).waitFor()}
   await a.page.locator('#main-property-form [name=name]').fill('Fictional shared site');await a.page.locator('#main-property-form [name=panel]').fill('TEST');await a.page.locator('#main-property-form [name=last]').fill('2026-10-27');await a.page.locator('#main-property-form button[type=submit]').click();await sync(a.page);
   const property=[...rows.keys()][0];assert.equal(rows.size,1);assert(!JSON.stringify([...rows.values()]).includes('Private legacy'));
+  await a.page.evaluate(()=>ParamountTeamTemplates.refresh());
+  assert.equal(await a.page.evaluate(()=>ParamountTeamTemplates.rows().length),1);
   const values={service:{engineer:'Fixture',system:'TEST',standard:'TEST',tests:'Fixture results',battery:'Not inspected',measurements:'Not measured fixture',defects:'Fixture',actions:'Fixture',recipient:'Fixture',declaration:'Fixture'},pat:{engineer:'Fixture',instrument:'TEST',calibration:'TEST',asset:'A001',appliance:'Kettle',location:'Kitchen',equipmentClass:'Class I',visual:'Fixture',tests:'Fixture readings',outcome:'Pass within recorded test scope',defects:'Fixture'},lighting:{engineer:'Fixture',system:'L1',location:'Hall',testType:'Duration test',duration:'180',tests:'Fixture readings',defects:'Fixture',actions:'Fixture'}};
   for(const [kind,title]of [['service','Service Records'],['pat','PAT Testing'],['lighting','Emergency Lighting']]){
     await tab(a.page,title);await a.page.locator('form[data-main-form]').evaluate((form,v)=>{for(const [k,value]of Object.entries(v))form.elements.namedItem(k).value=value;form.dispatchEvent(new Event('input',{bubbles:true}));form.elements.reviewed.checked=true},{property,date:'2026-10-27',...values[kind]});
+    await a.page.locator('[name=templateRef]').selectOption(templateId);await a.page.locator('[name=templateMappingRef]').selectOption(templateId+':0');
     await a.page.locator('form[data-main-form] button[type=submit]').first().click();await sync(a.page);
   }
   for(const p of [b.page,c.page]){await sync(p);await tab(p,'Service Records');assert.equal(await p.locator('.main-record').count(),1);await tab(p,'PAT Testing');assert.equal(await p.locator('.main-record').count(),1);await tab(p,'Emergency Lighting');assert.equal(await p.locator('.main-record').count(),1)}
   assert.equal(rows.size,4);
   const service=[...rows.values()].find(r=>r.kind==='service');
+  assert.equal(service.payload.values.templateRef,templateId);assert.equal(service.payload.values.templateMappingRef,templateId+':0');
+  // Office selection uses the same immutable shared mapping. Company change clears it.
+  await tab(a.page,'Invoices');await a.page.locator('[name=templateRef]').selectOption(templateId);await a.page.locator('[name=templateMappingRef]').selectOption(templateId+':0');await a.page.locator('[name=branding]').selectOption('absolute');assert.equal(await a.page.locator('[name=templateRef]').inputValue(),'');
+  // Loaded-shell offline draft export; reconnect rechecks exact-version authorisation.
+  await a.context.setOffline(true);const downloading=a.page.waitForEvent('download');await a.page.evaluate(async r=>ParamountTemplates.downloadFor(r,ParamountTeamSync.scope()),service.payload);const downloaded=await downloading;assert.match(downloaded.suggestedFilename(),/^DRAFT-/);await downloaded.saveAs('test-results/shared-offline-mapped.pdf');await a.context.setOffline(false);
+  sharedTemplate={...sharedTemplate,active:false};await a.page.evaluate(()=>ParamountTeamTemplates.refresh());assert.equal(await a.page.evaluate(()=>ParamountTeamTemplates.rows()[0].active),false);await tab(a.page,'Service Records');await a.page.locator('[data-main-edit]').first().click();assert.equal(await a.page.locator('[name=templateRef]').inputValue(),templateId);assert.equal(await a.page.locator('[name=templateMappingRef]').inputValue(),templateId+':0');
+
   await a.page.locator('#team-sync details:has(#team-issue) summary').click();
   await a.page.locator('#team-issue [name=document]').selectOption(service.id);await a.page.locator('#team-issue [name=note]').fill('Fictional competent review with limitations');await a.page.locator('#team-issue button').first().click();
   await a.page.locator('#team-status').filter({hasText:'Frozen revision issued'}).waitFor();assert.equal(await a.page.locator('#team-invite [name=issue]').inputValue(),issueId);

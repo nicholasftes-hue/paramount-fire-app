@@ -32,3 +32,13 @@ Status: DEVELOPMENT ONLY. This checklist does not authorise merging, deployment,
 - Automatic email/SMS reminders, shared cloud editing, production permissions, electronic signatures, compliant certificate issue, verified SmartCell manuals, scaled CAD drawings and unattended communications.
 
 This checklist supplements MAIN-APP-PROGRESS.md. PR #2 remains stacked on PR #1; do not retarget or merge without review.
+
+## 30 October continuation — no launch approval
+
+Use DEVELOPMENT-2026-10-30.md for current implementation and validation status.
+Physical mobile/Word and competent-person review now have explicit acceptance
+packs. ISOLATED-RECOVERY-AND-DELIVERY-ACCEPTANCE.md separates automated synthetic
+checks from still-pending hosted/inbox acceptance. Shared engineer/office mapping
+and scoped cache are implemented in the isolated entry point; production scanner
+promotion enforcement, full offline shell acceptance and real operational restore
+remain open. Main/production/live/demo are not release targets for this work.

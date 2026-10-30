@@ -65,3 +65,13 @@ Local browser execution in the rebuild environment was blocked by socket
 permissions (`listen EPERM`, Python `PermissionError` and Chromium `setsockopt`).
 The read-only GitHub Actions workflow runs these scenarios on a normal runner.
 See ACADEMY-RESTORATION.md for current results and remaining acceptance work.
+
+Shared-template continuation: `npm test` includes scoped offline snapshot races,
+expiry/reload/tampering/denial, real imported mappings in engineer/office controls,
+quarantine scanner failures and actual local receipt rendering/signing with an
+injected provider. `git ls-files -z | node scripts/security-checks.cjs` scans tracked
+source without network. The team browser runner now exercises shared engineer and
+office selection, mapping pins, offline mapped download and deactivation/history.
+The disposable database runner also performs pg_dump/restore into a separate test
+database, compares every synthetic table, rechecks permissions/hashes and drops
+only that restore database. Never run it against hosted/production data.
