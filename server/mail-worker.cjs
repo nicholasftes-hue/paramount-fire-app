@@ -9,12 +9,14 @@ async function receiptAttachment(m,c){
  return {filename:'paramount-acknowledged-'+m.request_id+'.pdf',content:signed.bytes.toString('base64'),sha256:signed.sha256,certificate_sha256:signed.certificateSha256};
 }
 const PRODUCTION='https://ehlfgmfjzwfsudowaxku.supabase.co';
+function recipients(value){const rows=(value||'').split(',').map(x=>x.trim().toLowerCase());if(!rows.length||rows.length>10||rows.some(x=>! /^[a-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(x)))throw Error('Explicit test inbox allowlist required');return rows;}
 function settings(env){
  const url=new URL(env.PARAMOUNT_TEST_URL||'');
  if(env.PARAMOUNT_ISOLATED_WORKER!=='yes'||url.origin===PRODUCTION||url.username||url.password||url.pathname!=='/'||url.search||url.hash||!/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(url.origin)||url.hostname.split('.')[0]!==env.PARAMOUNT_TEST_PROJECT_REF||!env.PARAMOUNT_WORKER_KEY||!env.RESEND_API_KEY||!env.PARAMOUNT_SIGNING_KEY_PATH||!env.PARAMOUNT_SIGNING_CERT_PATH||!/^[^\r\n]+@[^\r\n]+$/.test(env.PARAMOUNT_FROM_EMAIL||''))throw Error('Explicit isolated worker configuration required');
- return {url:url.origin,key:env.PARAMOUNT_WORKER_KEY,emailKey:env.RESEND_API_KEY,from:env.PARAMOUNT_FROM_EMAIL,keyPath:env.PARAMOUNT_SIGNING_KEY_PATH,certificatePath:env.PARAMOUNT_SIGNING_CERT_PATH};
+ return {url:url.origin,key:env.PARAMOUNT_WORKER_KEY,emailKey:env.RESEND_API_KEY,from:env.PARAMOUNT_FROM_EMAIL,keyPath:env.PARAMOUNT_SIGNING_KEY_PATH,certificatePath:env.PARAMOUNT_SIGNING_CERT_PATH,recipientAllowlist:recipients(env.PARAMOUNT_TEST_RECIPIENT_ALLOWLIST)};
 }
 async function tick(c,fetcher=fetch,makeAttachment=receiptAttachment){
+ const allowlist=recipients((c.recipientAllowlist||[]).join(','));
  const rpc=async(name,body={})=>{
   const response=await fetcher(c.url+'/rest/v1/rpc/'+name,{method:'POST',signal:AbortSignal.timeout(20000),headers:{apikey:c.key,Authorization:'Bearer '+c.key,'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!response.ok)throw Error('Worker RPC failed');return response.json();
@@ -22,6 +24,7 @@ async function tick(c,fetcher=fetch,makeAttachment=receiptAttachment){
  await rpc('paramount_mail_schedule');let sent=0;
  for(let i=0;i<50;i++){
   const m=await rpc('paramount_mail_claim');if(!m)break;
+  if(typeof m.recipient!=='string'||!allowlist.includes(m.recipient.toLowerCase())||/[\r\n]/.test(m.recipient)||typeof m.body?.subject!=='string'||/[\r\n]/.test(m.body.subject)){await rpc('paramount_mail_finish',{p_id:m.id,p_lease:m.lease,p_outcome:'permanent',p_provider:null});continue;}
   if(m.kind==='receipt'&&!m.body.attachment){const attachment=await makeAttachment(m,c);m.body=await rpc('paramount_mail_artifact',{p_id:m.id,p_lease:m.lease,p_attachment:attachment});if(!m.body)continue;}
   let outcome='retry',provider=null;
   try{

@@ -6,8 +6,8 @@ const t={id,family,version:1,name:'Shared blank',company:'absolute',property:'',
 const meta={id,family,expected:0,name:'Shared blank',company:'absolute',kind:'invoice',mappings:t.mappings};
 const setup=(rpc,extra={})=>create({rpc,inspect:async(n,b)=>pdf.inspect(b),mappingSources:['engineer','reference'],...extra});
 test('shared template publishing inspects original bytes and verifies exact server acknowledgement',async()=>{
- const calls=[],api=setup(async(n,args)=>{calls.push({n,args});return t;});const result=await api.publish(original,meta);assert(result.fields.includes('prepared_by'));assert.equal(calls.length,1);assert.equal(calls[0].n,'paramount_template_publish');assert.equal(calls[0].args.p_hash,hash);assert.deepEqual(Buffer.from(calls[0].args.p_content,'base64'),bytes);assert.equal(calls[0].args.p_company,'absolute');
- await assert.rejects(()=>api.publish(original,{...meta,mappings:[{name:'unsafe',fields:{prepared_by:'engineerSignature'}}]}),/Unsupported/);assert.equal(calls.length,1);
+ const calls=[],api=setup(async(n,args)=>{calls.push({n,args});return n==='paramount_template_scan_request'?{state:'clean',hash}:t;});const result=await api.publish(original,meta);assert(result.fields.includes('prepared_by'));assert.equal(calls.length,2);assert.equal(calls[1].n,'paramount_template_publish');assert.equal(calls[1].args.p_hash,hash);assert.deepEqual(Buffer.from(calls[1].args.p_content,'base64'),bytes);assert.equal(calls[1].args.p_company,'absolute');
+ await assert.rejects(()=>api.publish(original,{...meta,mappings:[{name:'unsafe',fields:{prepared_by:'engineerSignature'}}]}),/Unsupported/);assert.equal(calls.length,2);
 });
 test('shared downloads and backups re-inspect content and reject tampering or substituted versions',async()=>{
  assert((await setup(async()=>t).get(id)).fields.includes('prepared_by'));
@@ -15,7 +15,7 @@ test('shared downloads and backups re-inspect content and reject tampering or su
  await assert.rejects(()=>setup(async()=>({...t,id:family})).get(id),/Wrong/);
  const backup={version:1,workspace,templates:[t],audit:[]};assert.equal((await setup(async()=>backup).backup()).templates[0].hash,hash);
  await assert.rejects(()=>setup(async()=>({...backup,templates:[{...t,content:btoa('bad')}]})).backup(),/hash/);
- await assert.rejects(()=>setup(async()=>({...t,version:2})).publish(original,meta),/acknowledgement/);
+ await assert.rejects(()=>setup(async(n)=>n==='paramount_template_scan_request'?{state:'clean',hash}:({...t,version:2})).publish(original,meta),/acknowledgement/);
 });
 test('shared actions propagate access/network failures and enforce account changes across awaited inspection',async()=>{
  let scope='account-one',calls=0;const api=setup(async()=>{calls++;return t},{scope:()=>scope,inspect:async(n,b)=>{scope='account-two';return pdf.inspect(b)}});
@@ -24,3 +24,5 @@ test('shared actions propagate access/network failures and enforce account chang
  await assert.rejects(()=>setup(async()=>{throw Error('Offline')}).get(id),/Offline/);
  await assert.rejects(()=>setup(async()=>[]).active('bad',false),/Invalid/);
 });
+
+test('pending and blocked scans never call publication',async()=>{for(const state of ['pending','scanning','blocked']){const calls=[];const api=setup(async n=>{calls.push(n);return {state,hash};});await assert.rejects(()=>api.publish(original,meta),/quarantined|rejected/);assert.deepEqual(calls,['paramount_template_scan_request']);}});

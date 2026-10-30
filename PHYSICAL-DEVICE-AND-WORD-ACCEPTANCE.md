@@ -80,3 +80,32 @@ No blank row means approval. Retest affected checks after fixes.
 | Field engineer (iPhone) | Pending | Pending | Not executed | Pending |
 | Office Word reviewer | Pending | Pending | Not executed | Pending |
 | Owner release decision | Pending | Pending | No launch approval | Pending |
+## Final execution record for launch gates L07–L09
+
+Use PRODUCTION-LAUNCH-CHECKLIST.md for the candidate-level decision. Execute all
+steps above against one recorded SHA/evidence cohort. The required cohort is
+service, PAT, lighting, extinguisher and installation; quote/invoice; each in both
+Paramount and Absolute presentation, plus authorised shared PDF and DOCX originals,
+a mapped PDF export and a historical/deactivated version. Include long address,
+multiple equipment pages, empty optional fields, explicit Not Tested/Fail and
+limitations. Fictional values must never be presented as completed inspections.
+
+Add security checks to step 3: first upload returns quarantined; no library entry
+or original download is available while pending/scanning/blocked; clean worker
+completion permits a retry with the same upload identity; malformed/infected or
+scanner-offline files never publish. Engineer/office users cannot record a scan
+verdict. Do not change device clocks to manufacture a cache PASS; document the
+known offline clock/revocation limits and obtain retention approval.
+
+For each device/browser/Word configuration, retain the exact input record/template
+hashes, exported files/checksums, before/after reopen screenshots, print/PDF page
+comparisons, actual result and blocking defect IDs. Samsung Chrome and Samsung
+Internet are separate runs; iPhone Safari is a separate physical run. Test both
+loaded-tab offline behaviour and cold launch; if the latter is unavailable,
+record BLOCKED and a release scope decision rather than silently passing it.
+
+Final sign-off must state: tester/name/date, actual hardware/OS/application
+versions, full SHA, evidence location/hash, all cases PASS, resolved/retested
+defect IDs, any explicit owner-approved scope exclusions and signature. All rows
+remain **NOT EXECUTED** until a human performs them. Automated browser emulation
+and Python DOCX parsing do not close these gates.

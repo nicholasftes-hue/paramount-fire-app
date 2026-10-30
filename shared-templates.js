@@ -1,7 +1,7 @@
 /* Explicit isolated-workspace RPC adapter. No endpoint, credentials or defaults. */
 ((root)=>{
  'use strict';
- const allowed=['paramount_template_list','paramount_template_get','paramount_template_publish','paramount_template_active','paramount_template_backup'];
+ const allowed=['paramount_template_scan_request','paramount_template_list','paramount_template_get','paramount_template_publish','paramount_template_active','paramount_template_backup'];
  const stable=v=>JSON.stringify(v,(_,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.entries(x).sort(([a],[b])=>a.localeCompare(b))):x);
  const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
  const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b))).map(n=>n.toString(16).padStart(2,'0')).join('');
@@ -17,7 +17,7 @@
    async get(id){const before=scope();if(!uuid(id))throw Error('Invalid template ID.');const t=await verify(await call('paramount_template_get',{p_id:id}));guard(before);if(t.id!==id)throw Error('Wrong shared template version.');return t;},
    async publish(file,meta){const before=scope();if(file.size>2097152)throw Error('Use a file up to 2 MB.');if(!uuid(meta.id)||!uuid(meta.family)||!Number.isInteger(meta.expected)||meta.expected<0||typeof meta.name!=='string'||!meta.name.trim()||meta.name.length>120||!['','paramount','absolute'].includes(meta.company)||meta.property&&!uuid(meta.property))throw Error('Invalid shared template metadata.');const original=await file.arrayBuffer(),info=await inspect(file.name,original);mappings(info,meta.mappings||[]);const hash=await digest(original);let content='';for(const b of new Uint8Array(original))content+=String.fromCharCode(b);
     const payload={name:meta.name.trim(),filename:file.name.replace(/[^\w. -]/g,'_'),kind:meta.kind||'',format:info.format,fields:info.fields,mappings:meta.mappings||[]};
-    guard(before);const result=await verify(await call('paramount_template_publish',{p_id:meta.id,p_family:meta.family,p_expected:meta.expected,p_property:meta.property||null,p_company:meta.company,p_payload:payload,p_content:btoa(content),p_hash:hash}));
+    guard(before);const scan=await call('paramount_template_scan_request',{p_content:btoa(content),p_hash:hash,p_format:info.format});guard(before);if(scan?.state!=='clean'||scan.hash!==hash)throw Error(scan?.state==='blocked'?'Upload rejected by server security scanning. Contact the administrator.':'Upload quarantined for server security scanning. Retry after the scan completes.');const result=await verify(await call('paramount_template_publish',{p_id:meta.id,p_family:meta.family,p_expected:meta.expected,p_property:meta.property||null,p_company:meta.company,p_payload:payload,p_content:btoa(content),p_hash:hash}));
     guard(before);if(result.id!==meta.id||result.family!==meta.family||result.version!==meta.expected+1||result.hash!==hash||result.company!==meta.company||result.name!==payload.name||result.kind!==payload.kind||result.property!==(meta.property||'')||stable(result.mappings)!==stable(payload.mappings))throw Error('Unexpected shared template acknowledgement. Retain the upload and retry using the same ID.');return result;
    },
    async active(id,active){if(!uuid(id)||typeof active!=='boolean')throw Error('Invalid template action.');return call('paramount_template_active',{p_id:id,p_active:active});},

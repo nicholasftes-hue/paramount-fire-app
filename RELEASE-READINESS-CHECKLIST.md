@@ -42,3 +42,7 @@ checks from still-pending hosted/inbox acceptance. Shared engineer/office mappin
 and scoped cache are implemented in the isolated entry point; production scanner
 promotion enforcement, full offline shell acceptance and real operational restore
 remain open. Main/production/live/demo are not release targets for this work.
+
+The current explicit go/no-go matrix is PRODUCTION-LAUNCH-CHECKLIST.md.
+Its NO-GO status supersedes older blocker descriptions above. The development
+scan gate is implemented; hosted execution and human approvals remain pending.

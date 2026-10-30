@@ -63,3 +63,26 @@ code/template/mapping/standard/issuer changes or any relevant test failure.
 Reviewer signature/date: ______ Owner acceptance/date: ______
 
 Current decision: **not executed, no approval, not launch-ready**.
+## Final launch gate L10 — review packet and decision
+
+Use the same exact SHA and frozen synthetic document cohort as physical/Word
+acceptance. Supply both brands of service/PAT/lighting/extinguisher/installation,
+explicit Fail and Not Tested examples, long/multi-page equipment records,
+limitations, a mapped imported original, a revised historical record and one
+controlled-issue/acknowledgement evidence PDF. Include source record/revision,
+original/export hashes and standards editions. Reviewer must compare the visible
+PDF/Word output to the frozen input; readable layout alone is insufficient.
+
+The named competent reviewer records discipline/qualification, edition and scope,
+per-case PASS/FAIL, technical defects and retest evidence, acceptable legal issuer
+and contractor labels, and whether the basic CMS acknowledgement/signature is
+suitable for the intended use. Approval must not imply a qualified signature or
+trusted timestamp. Absolute artwork/legal presentation requires its own owner
+approval. Unreviewed/unfinished records must remain drafts; no approval can be
+inferred from the software marking a form complete.
+
+Final decision fields: reviewer, competence/scope, UTC date, full candidate SHA,
+evidence bundle/hash, reviewed standards/editions, unresolved blocking defects,
+explicit scope exclusions, decision and signed approval. Status remains
+**NOT EXECUTED / NO TECHNICAL APPROVAL**. No generated example is a compliance
+certificate or evidence that a real inspection occurred.

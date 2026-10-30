@@ -21,6 +21,7 @@ function signPdf(input,{keyPath,certificatePath}){
  const rangeOffset=output.indexOf(Buffer.from(ranges),original.length);output.write(byteRange,rangeOffset,'ascii');
  const data=Buffer.concat([output.subarray(0,start),output.subarray(end)]),directory=mkdtempSync(join(tmpdir(),'paramount-sign-'));
  try{
+  const valid=spawnSync('openssl',['x509','-in',certificatePath,'-checkend','0','-noout'],{timeout:10000,stdio:'pipe'});if(valid.status!==0)throw Error('Signing certificate expired or unavailable');
   const dataPath=join(directory,'content.bin'),signaturePath=join(directory,'signature.der');writeFileSync(dataPath,data,{mode:0o600});
   const result=spawnSync('openssl',['cms','-sign','-binary','-nosmimecap','-md','sha256','-signer',certificatePath,'-inkey',keyPath,'-in',dataPath,'-outform','DER','-out',signaturePath],{timeout:20000,stdio:'pipe'});
   if(result.status!==0)throw Error('PDF signing failed; check restricted key/certificate configuration');

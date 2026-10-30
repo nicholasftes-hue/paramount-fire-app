@@ -125,3 +125,18 @@ jobs:
       - run: python3 tests/team-sync-db.py
 
 
+  isolated-antivirus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install and update isolated antivirus engine
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clamav
+          sudo freshclam --stdout
+      - name: Verify real scanner quarantine
+        run: node tests/antivirus-acceptance.cjs

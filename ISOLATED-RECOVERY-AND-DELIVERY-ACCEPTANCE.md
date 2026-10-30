@@ -59,7 +59,7 @@ production project or live app. Do not run a restored queue against a real sende
 | Source recovery | Recover exact commit from retained source ZIP; verify checksum/tree, tests and all binary assets | Local ZIP extraction and all 115 implementation-head blob hashes passed locally and in CI 41105370127 |
 | Hosted data recovery | Owner-approved backup to separate project; records/revisions, auth mapping, ACLs, templates/originals, audit and storage compare | Pending isolated hosted configuration |
 | Recovery objective | Measured backup age/RPO and complete restore time/RTO versus owner-approved targets | Targets/measurements pending |
-| Quarantine gate | Updated antivirus database; infected/malformed/timeout/missing-scanner fixtures remain quarantined; server publication requires trusted scan of exact hash | Local scanner prepared; enforced hosted publication gate pending |
+| Quarantine gate | Updated antivirus database; infected/malformed/timeout/missing-scanner fixtures remain quarantined; server publication requires trusted scan of exact hash | Database/worker gate implemented in development; hosted execution pending |
 | Invitation delivery | Single approved test recipient; invitation arrives with correct HTTPS origin, expiry and no token leakage; collect provider event and inbox evidence | Pending |
 | Verification | Email challenge arrives only at intended mailbox; wrong/exhausted/expired/revoked/replayed proofs reject | Automated synthetic coverage; real mailbox pending |
 | Receipt delivery | Actual acknowledged frozen revision; receipt arrives with exact stored signed attachment/hash, scope, issuer and audit | Local render/sign/provider-mock passed; inbox pending |
@@ -77,13 +77,21 @@ bounded PDF/DOCX into a private newly-created directory, inspects structure, run
 `clamscan`, verifies the same bytes again, and writes a hash/verdict manifest.
 Missing scanner, signature database errors, timeout, infection and structural
 rejection all yield blocked. No file is served or published by this utility.
-A clean result is point-in-time evidence, not a signed publish token. The current
-isolated admin RPC still checks roles/hash/magic and permits trusted admin uploads;
-it does not enforce this scanner. Enforcing a trusted scan/quarantine promotion
-service and keeping its database current remains a production blocker.
+A local report is not a publish token. The additive template-security migration
+now enforces trusted server results: private queued bytes, worker-only expiring
+leases, exact hash/format/fields and publication/read/activation gates, including
+idempotent publish returns. The browser first queues an upload and retries only
+after a clean server result. ClamAV signatures older than 48 hours or unavailable
+block new scans. Apply/test only on isolated infrastructure; hosted enforcement,
+monitoring, least-privilege key custody and quarantine retention remain gates.
+See PRODUCTION-LAUNCH-CHECKLIST.md and HOSTED-RECOVERY-RUNBOOK.md.
 
 CI source checks parse all tracked JavaScript, flag private-key material and common
 credential-shaped tokens/privileged JWTs, check isolated SQL/search paths, and
 ensure shared private caches never enter the public service-worker shell. Existing
 npm dependency audit remains. These bounded checks do not replace a professional
 security review, full secret-history scan or independent penetration testing.
+
+For safe real-inbox preparation and explicit remaining approvals, use
+SAFE-DELIVERY-AND-SIGNING-ACCEPTANCE.md. No provider acceptance or hosted restore
+is claimed by the local mocked tests.

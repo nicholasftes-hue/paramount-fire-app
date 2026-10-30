@@ -96,3 +96,60 @@ conversion remains a manual Word acceptance step, not an app service.
 Earlier offline draft backup merging remains implemented and tested: missing
 partial forms restore without replacing current work, account/edit-source checks
 apply, record conflicts abort atomically, and no completion is inferred.
+## Launch-blocker continuation from 3380c08
+
+Recovered all 115 baseline blobs through the GitHub connector; byte lengths and
+Git SHA-1s match. Reconstructed exact baseline commit and root tree
+`145ffcbebc23d9bfa56db040d7d2ca27e743f3fd`; remote commits preserve that parent.
+The shell proxy remains unavailable. No production/live/demo service contacted.
+
+Development changes:
+
+- Additive `template-security-isolated.sql` queues bounded private upload bytes;
+  only server service-role RPCs claim/finish scans using expiring UUID leases.
+  Publication (including idempotent returns), direct inserts/activation and
+  normal reads require a clean scan of exact hash/format; publication also binds
+  original bytes and inspected fields. Browser uploads remain quarantined until
+  worker completion and retry. Anonymous/staff/admin cannot forge worker verdicts.
+  Pre-existing unscanned versions are hidden from ordinary reads; admin recovery
+  export remains available. No SQL was applied to a hosted project.
+- `template-scan-worker.cjs` connects the private queue to structural inspection
+  and antivirus, records clean/blocked, rejects substituted bytes/expired leases
+  and redacts failures. ClamAV missing/stale (>48h)/future signature dates, errors,
+  timeouts, infection and byte tampering fail closed. Private failed originals
+  and scan reports remain quarantined for operator retention review.
+- Isolated mailbox worker requires an explicit exact test-inbox allowlist;
+  non-allowlisted recipients/header injection fail before signing/provider send.
+  Receipt bytes are still persisted before submission; temporary-certificate
+  integration and independent cryptographic tamper detection remain covered.
+  Expired/unavailable signing certificates are rejected. No real email sent.
+- Hosted recovery harness captures private full pg_dump/checksum and compares
+  application/Auth/storage rows, public/application schema/ACL/RLS and synthetic
+  object bytes across distinct approved projects. It checks the exact synthetic
+  Auth cohort and unchanged source. Supported managed restore, actual Auth/denial
+  checks and owner RPO/RTO evidence remain operator gates, not fabricated PASS.
+- Repository migration dependency/rollback review, safe delivery/signing pack,
+  final physical Samsung/iPhone/actual Word and competent-person execution records,
+  and explicit production launch GO/NO-GO/approval matrix are prepared. See
+  PRODUCTION-LAUNCH-CHECKLIST.md and its linked runbooks. NO-GO remains in force.
+
+Local verification: **npm test exits 0; 127 Node tests pass**, with legacy checks
+also completing. Independent blank Word + all 88 fillable PDF fields,
+populated service/quote, extinguisher/installation, imported PDF appearances,
+controlled evidence/cryptographic PDF and mapped Word/both-brand PDF rendering
+checks pass. Python syntax compilation, source security checks (125 source files
+before this report update) and git diff whitespace validation pass.
+
+Local browser attempt fails at loopback listen EPERM before app execution.
+Disposable DB attempt fails because psql is absent; managed Docker socket is
+unavailable to this non-root runtime. Real antivirus acceptance fails without
+ClamAV. These checks are not claimed passed locally. CI now includes an isolated
+updated-ClamAV benign/EICAR test, alongside full existing browser/document/source
+recovery and disposable database/restore coverage with new scan-gate tests.
+Final exact-head CI must be checked and any failures resolved before reporting
+verified development completion. Hosted/inbox/physical/actual Word/technical
+approval tests remain NOT RUN; this environment has no credentials/identities.
+
+PR #2 stays open and draft, base paramount-academy-update. No merge/deploy or
+changes to main, production Supabase, live app or Mark's demo. Human approvals
+are outstanding, not requested as a substitute for implementation work.

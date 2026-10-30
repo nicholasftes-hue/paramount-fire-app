@@ -59,7 +59,7 @@
   }
   window.ParamountTeamSync={
     templateOnline:()=>!!transport?.session&&!!engine&&exclusive&&navigator.onLine!==false,
-    templateRpc:(name,args)=>{if(!['paramount_template_list','paramount_template_get','paramount_template_publish','paramount_template_active','paramount_template_backup'].includes(name))throw Error('Unsupported template operation.');return issueRpc(name,args);},
+    templateRpc:(name,args)=>{if(!['paramount_template_scan_request','paramount_template_list','paramount_template_get','paramount_template_publish','paramount_template_active','paramount_template_backup'].includes(name))throw Error('Unsupported template operation.');return issueRpc(name,args);},
     scope:()=>engine?'team-test:'+settings.url+':'+settings.workspace+':'+user:'team-test:locked',
     properties:()=>engine?engine.properties():[],read:()=>engine?engine.workspace():{version:1,records:[],drafts:{}},
     write:data=>must().writeWorkspace(data),saveProperty:(values,expected)=>must().saveProperty(values,expected),raw:()=>engine?localStorage.getItem(key()):'',

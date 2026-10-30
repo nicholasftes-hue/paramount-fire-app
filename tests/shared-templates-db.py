@@ -16,6 +16,38 @@ def publish(user=users[0],id=template_id,family_id=family,expected=0,company='pa
  args=[literal(w),literal(id),literal(family_id),str(expected),literal(property_id) if property_id else 'null',literal(company),literal(json.dumps(body))+'::jsonb',literal(encoded),literal(hash)]
  result=as_user(user,'select public.paramount_template_publish('+','.join(args)+')',ok)
  return json.loads(result[-1]) if ok else None
+# Additive security migration: browser/admin cannot attest scanner success.
+security=Path('sql/template-security-isolated.sql').read_text()
+sql(security,False)
+sql("set paramount.isolated_sync_test='yes';"+security)
+sql("set paramount.isolated_sync_test='yes';"+security,False)
+publish(ok=False)
+request=f"select public.paramount_template_scan_request({literal(w)},{literal(content)},{literal(hash_value)},'pdf')"
+for user in [users[1],users[2],users[3]]:as_user(user,request,False)
+as_user('',request,False,'anon')
+assert json.loads(as_user(users[0],request)[-1])['state']=='pending'
+assert json.loads(as_user(users[0],request)[-1])['state']=='pending'
+publish(ok=False)
+for user in [users[0],users[1]]:
+ as_user(user,'select public.paramount_template_scan_claim()',False)
+ as_user(user,'select * from paramount_sync.template_scans',False)
+claim=json.loads(as_user('','select public.paramount_template_scan_claim()',role='service_role')[-1])
+assert base64.b64decode(claim['content'])==blob
+assert as_user('','select public.paramount_template_scan_claim()',role='service_role')==['null']
+def finish(lease,clean=True,fields=payload['fields'],role='service_role',ok=True):
+ return as_user('',f"select public.paramount_template_scan_finish({literal(w)},{literal(hash_value)},'pdf',{literal(lease)},{str(clean).lower()},{literal(json.dumps(fields))}::jsonb,'fictional-test-scanner')",ok,role)
+finish(claim['lease'],role='authenticated',ok=False)
+assert finish(uid())==['f']
+sql("update paramount_sync.template_scans set lease_until=clock_timestamp()-interval '1 second'")
+assert finish(claim['lease'])==['f']
+old_lease=claim['lease']
+claim=json.loads(as_user('','select public.paramount_template_scan_claim()',role='service_role')[-1])
+assert claim['lease']!=old_lease
+assert finish(old_lease)==['f']
+publish(ok=False)
+assert finish(claim['lease'])==['t']
+assert finish(claim['lease'])==['f']
+publish(body={**payload,'fields':['forged']},ok=False)
 for user in [users[1],users[2],users[3]]:publish(user=user,ok=False)
 first=publish()
 assert first['hash']==hash_value and first['company']=='paramount' and first['version']==1
@@ -59,3 +91,13 @@ as_user(users[2],f"select public.paramount_template_get({literal(w)},{literal(re
 sql(f"update paramount_sync.staff set active=false where user_id={literal(users[2])} and workspace_id={literal(w)}")
 as_user(users[2],f"select public.paramount_template_get({literal(w)},{literal(template_id)})",False)
 print('PASS shared templates: migration guards, immutable originals, server hash, both brands, roles/anonymous/foreign/revoked/direct-access denial, property ACLs, CAS races, idempotency, historical reads, deactivation, original/audit backup')
+
+# Existing/idempotent returns, list/get and reactivation cannot bypass a blocked verdict.
+sql("update paramount_sync.template_scans set state='blocked'")
+publish(ok=False)
+assert json.loads(as_user(users[0],f"select public.paramount_template_list({literal(w)})")[-1])==[]
+as_user(users[0],f"select public.paramount_template_get({literal(w)},{literal(template_id)})",False)
+as_user(users[0],f"select public.paramount_template_active({literal(w)},{literal(second['id'])},true)",False)
+# Owner restoration of this synthetic fixture only, to preserve subsequent restore comparisons.
+sql("update paramount_sync.template_scans set state='clean'")
+print('PASS scan enforcement: missing/pending/blocked/field substitution/idempotent bypass, roles, private quarantine, hash binding, expired and superseded leases, list/get/reactivation denial')

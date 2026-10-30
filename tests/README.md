@@ -75,3 +75,12 @@ office selection, mapping pins, offline mapped download and deactivation/history
 The disposable database runner also performs pg_dump/restore into a separate test
 database, compares every synthetic table, rechecks permissions/hashes and drops
 only that restore database. Never run it against hosted/production data.
+
+Launch-blocker continuation: the disposable DB harness now applies
+`template-security-isolated.sql` and tests missing/pending/blocked scans,
+worker-only leases, direct/table/RPC/idempotent publication and retrieval gates.
+The separate CI antivirus job requires fresh ClamAV signatures and checks a
+benign original and the harmless EICAR fixture; it fails if the scanner is absent
+or stale. Hosted acceptance is prepared in HOSTED-RECOVERY-RUNBOOK.md and is not
+a local mock PASS. Real mailbox/identity and physical/Word checks remain human
+gates in PRODUCTION-LAUNCH-CHECKLIST.md.

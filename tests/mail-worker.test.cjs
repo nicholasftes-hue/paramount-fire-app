@@ -1,9 +1,9 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {settings,tick}=require('../server/mail-worker.cjs');
-const c={url:'https://fictional.supabase.co',key:'fixture',emailKey:'fictional',from:'test@example.invalid'};
+const c={url:'https://fictional.supabase.co',key:'fixture',emailKey:'fictional',from:'test@example.invalid',recipientAllowlist:['recipient@example.invalid','test@example.invalid','fictional@example.invalid']};
 test('worker refuses production, missing explicit isolation and incomplete provider configuration',()=>{
  for(const env of [{},{PARAMOUNT_ISOLATED_WORKER:'yes',PARAMOUNT_TEST_URL:'https://ehlfgmfjzwfsudowaxku.supabase.co',PARAMOUNT_TEST_PROJECT_REF:'ehlfgmfjzwfsudowaxku'}])assert.throws(()=>settings(env));
- const env={PARAMOUNT_ISOLATED_WORKER:'yes',PARAMOUNT_TEST_URL:c.url,PARAMOUNT_TEST_PROJECT_REF:'fictional',PARAMOUNT_WORKER_KEY:'fixture',RESEND_API_KEY:'fixture',PARAMOUNT_FROM_EMAIL:c.from,PARAMOUNT_SIGNING_KEY_PATH:'/fictional/key.pem',PARAMOUNT_SIGNING_CERT_PATH:'/fictional/cert.pem'};assert.equal(settings(env).url,c.url);
+ const env={PARAMOUNT_ISOLATED_WORKER:'yes',PARAMOUNT_TEST_URL:c.url,PARAMOUNT_TEST_PROJECT_REF:'fictional',PARAMOUNT_WORKER_KEY:'fixture',RESEND_API_KEY:'fixture',PARAMOUNT_FROM_EMAIL:c.from,PARAMOUNT_TEST_RECIPIENT_ALLOWLIST:'test@example.invalid',PARAMOUNT_SIGNING_KEY_PATH:'/fictional/key.pem',PARAMOUNT_SIGNING_CERT_PATH:'/fictional/cert.pem'};assert.equal(settings(env).url,c.url);
  assert.throws(()=>settings({...env,PARAMOUNT_FROM_EMAIL:'test@example.invalid\r\nBcc:other@example.invalid'}));
 });
 test('worker retries unknown provider outcomes with stable idempotency keys and redacts errors',async()=>{
@@ -46,4 +46,12 @@ test('isolated delivery acceptance builds a real signed receipt, persists its ha
  assert.equal(await tick({...c,keyPath,certificatePath},fake),1);assert.deepEqual(events,['persist','send']);assert.equal(finished.p_outcome,'accepted');assert.equal(posted.attachments[0].content,stored.content);
  const bytes=Buffer.from(stored.content,'base64');assert(bytes.subarray(0,5).equals(Buffer.from('%PDF-')));assert.match(bytes.toString('latin1'),/\/ByteRange \[/);assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),stored.sha256);assert.equal(stored.certificate_sha256.length,64);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('test-inbox allowlist blocks customer recipients and header injection before provider or signing',async()=>{
+ for(const recipient of ['real@customer.example','test@example.invalid\r\nBcc:real@customer.example']){
+ let claimed=false,finished;const fake=async(url,o)=>{if(url.endsWith('schedule'))return {ok:true,json:async()=>0};if(url.endsWith('claim')){const m=claimed?null:{id:'blocked',lease:'lease',recipient,kind:'receipt',body:{subject:'test'}};claimed=true;return {ok:true,json:async()=>m};}if(url.endsWith('finish')){finished=JSON.parse(o.body);return {ok:true,json:async()=>true};}assert.fail('Must not contact provider');};
+ assert.equal(await tick(c,fake,async()=>assert.fail('Must not sign')),0);assert.equal(finished.p_outcome,'permanent');
+ }
+ assert.throws(()=>settings({}),/./);
+ await assert.rejects(()=>tick({...c,recipientAllowlist:[]},async()=>assert.fail('No RPC before configuration')),/allowlist/);
 });
