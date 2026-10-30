@@ -168,3 +168,23 @@ symlink redirects and public directories before a worker claim. Its regression
 covers permissive umask environments explicitly. DOCUMENT-SECURITY-ACCEPTANCE.md
 records the server queue/worker setup, private retention, update monitoring and
 remaining hosted evidence/key-custody approval. Local suite now has 128 tests.
+
+### Verified implementation checkpoint
+
+Exact implementation head `2c6ff0184ac831a1028c9a87f46016b2936d8639` passed
+[CI 41116400061](https://github.com/nicholasftes-hue/paramount-fire-app/actions/runs/41116400061):
+**all three jobs succeeded**. The PR test merge tree was independently confirmed
+identical to development tree `a0d424aa869866d1edea89f7ddd57cd3bce05208`.
+Evidence includes 128 Node tests, passing legacy checks, dependency audit,
+main/Academy/browser/mobile/offline/update-consent regressions, shared template
+mapping/export, independent Word/PDF suites, full disposable PostgreSQL security
+and pg_dump/restore tests, source archive recovery and real freshly updated
+ClamAV benign-PDF/EICAR rejection. Private-path hardening is included in this run.
+Local exact-source archive extraction also matched all 126 tracked blob hashes.
+
+Earlier `395ed85` acceptance-setup failures are superseded by this passing run;
+`45a3b5a` had already passed DB/restore and real antivirus before the later push.
+This report-only follow-up preserves implementation; the current draft PR body
+records its own final SHA/CI result. Hosted, actual inbox/identity, physical
+Samsung/iPhone, actual Microsoft Word, technical/legal and owner/DBA approval
+gates are still NOT EXECUTED or NOT APPROVED. The launch decision remains NO-GO.
