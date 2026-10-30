@@ -28,7 +28,7 @@ function worker() {
 
 test('offline installation includes every shell asset and both PWA icons',async()=>{
   const w=worker();await w.lifecycle('install');
-  for(const path of ['index.html','index-3.html','academy.js','academy.css','app-updates.js', 'main-app.js', 'document-templates.js', 'main-app.css','manifest.webmanifest','icon-192.png','icon-512.png','academy-test.html', 'templates/Paramount_Quotation_Editable.docx', 'templates/Paramount_Quotation_Fillable.pdf', 'templates/Paramount_Invoice_Editable.docx', 'templates/Paramount_Invoice_Fillable.pdf']) {
+  for(const path of ['index.html','index-3.html','academy.js','academy.css','app-updates.js', 'main-app.js', 'document-templates.js', 'imported-pdf.js', 'main-app.css','manifest.webmanifest','icon-192.png','icon-512.png','academy-test.html', 'templates/Paramount_Quotation_Editable.docx', 'templates/Paramount_Quotation_Fillable.pdf', 'templates/Paramount_Invoice_Editable.docx', 'templates/Paramount_Invoice_Fillable.pdf']) {
     assert(w.stored.has('https://example.test/app/'+path));assert(fs.existsSync(path));
   }
   assert.equal(w.skipped,0);w.message('ignored');assert.equal(w.skipped,0);

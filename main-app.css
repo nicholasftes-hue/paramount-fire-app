@@ -16,3 +16,7 @@
 [data-template-library-panel] article { margin-block:16px; padding-block:12px; border-top:1px solid #c8dce9; }
 [data-template-library-panel] input, [data-template-library-panel] select { max-width:100%; min-width:0; box-sizing:border-box; }
 .main-grid fieldset select { max-width:100%; min-width:0; }
+/* Imported field names and shared templates must fit narrow mobile screens. */
+[data-template-library-panel] fieldset { min-width: 0; }
+[data-template-library-panel] label { overflow-wrap: anywhere; }
+[data-template-library-panel] select { max-width: 100%; min-width: 0; }

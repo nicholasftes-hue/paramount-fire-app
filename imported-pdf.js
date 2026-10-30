@@ -48,12 +48,12 @@
     const resolve=v=>v?.ref!==undefined?objects.get(v.ref)?.v:v;
     const root=resolve(trailer.Root);if(root?.Type?.name!=='Catalog')fail();
     const pages=[],seenPages=new Set();function walkPages(ref,depth=0){if(!ref?.ref||seenPages.has(ref.ref)||depth>20)fail();seenPages.add(ref.ref);const d=resolve(ref);if(d?.Type?.name==='Page'){pages.push({id:ref.ref,d});if(pages.length>100)fail();}else if(d?.Type?.name==='Pages'&&Array.isArray(d.Kids)){d.Kids.forEach(r=>walkPages(r,depth+1));}else fail();}walkPages(root.Pages);if(!pages.length)fail();
-    const fields=[],seenFields=new Set(),names=new Set();const form=resolve(root.AcroForm);
+    const fields=[],seenFields=new Set(),seenWidgets=new Set(),names=new Set();const form=resolve(root.AcroForm);
     function text(s){if(typeof s!=='string')fail();if(s.charCodeAt(0)===254&&s.charCodeAt(1)===255){if(s.length%2)fail();let out='';for(let i=2;i<s.length;i+=2)out+=String.fromCharCode(s.charCodeAt(i)*256+s.charCodeAt(i+1));return out;}if(/[^\x20-\x7e]/.test(s))fail();return s;}
     function field(ref,prefix='',inherited={},depth=0){if(!ref?.ref||seenFields.has(ref.ref)||depth>16)fail();seenFields.add(ref.ref);const d=resolve(ref);if(!isDict(d))fail();const title=d.T?text(d.T.str):'',full=prefix&&title?prefix+'.'+title:title||prefix,ft=d.FT||inherited.FT,flags=d.Ff??inherited.Ff??0;
       if(d.Kids){if(!Array.isArray(d.Kids))fail();if(d.Kids.some(r=>resolve(r)?.T)){d.Kids.forEach(r=>field(r,full,{FT:ft,Ff:flags},depth+1));return;}}
-      if(!full||full.length>200||names.has(full)||!Number.isInteger(flags)||fields.length>=200)fail();names.add(full);
-      const widgets=d.Kids||[ref];const supported=!/signature|declaration|signed|approval/i.test(full)&&ft?.name==='Tx'&&!(flags&(1|8192|1048576|16777216|33554432))&&widgets.length>0&&widgets.every(r=>{const w=resolve(r);return w?.Subtype?.name==='Widget'&&Array.isArray(w.Rect)&&w.Rect.length===4&&w.Rect.every(Number.isFinite);});
+      if(!full||full.length>200||names.has(full)||(!Number.isInteger(flags)||flags<0||flags>2147483647)||fields.length>=200)fail();names.add(full);
+      if(d.MaxLen!==undefined&&(!Number.isInteger(d.MaxLen)||d.MaxLen<1||d.MaxLen>100000))fail();const widgets=d.Kids||[ref];for(const r of widgets){if(!r?.ref||seenWidgets.has(r.ref))fail();seenWidgets.add(r.ref);}const supported=!/signature|declaration|signed|approval/i.test(full)&&ft?.name==='Tx'&&!(flags&(1|8192|1048576|16777216|33554432))&&widgets.length>0&&widgets.every(r=>{const w=resolve(r);return w?.Subtype?.name==='Widget'&&Array.isArray(w.Rect)&&w.Rect.length===4&&w.Rect.every(Number.isFinite);});
       fields.push({name:full,type:ft?.name||'unknown',supported,id:ref.ref,widgets:widgets.map(r=>r.ref),maxLength:d.MaxLen??null,flags});
     }
     if(form){if(!isDict(form)||!Array.isArray(form.Fields))fail();form.Fields.forEach(r=>field(r));}
